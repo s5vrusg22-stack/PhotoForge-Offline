@@ -1,0 +1,25 @@
+name: Qwen PixelSmile image pipeline preflight
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/run_qwen_pixelsmile_inference.py'
+      - 'scripts/check_qwen_image_pipeline.py'
+      - '.github/workflows/qwen-image-pipeline-preflight.yml'
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check inference code without downloading weights
+        run: python3 scripts/check_qwen_image_pipeline.py
+      - name: Save preflight report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qwen-image-pipeline-preflight-report
+          path: inference-preflight-report.json
+          retention-days: 30
