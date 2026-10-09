@@ -14,8 +14,19 @@ class LiteRtSequentialRunner(private val root: File) : AutoCloseable {
         require(name.matches(Regex("(ke_enc[0-2]|kc_(prep|double[01]|single[0-3]|final)|kce_(prep|double[01]|single[0-3]|final)|kv_vae(_enc)?)\\.tflite"))) {
             "Unexpected graph name"
         }
-        val file = File(root, name).canonicalFile
-        require(file.parentFile == root.canonicalFile && file.isFile) { "Missing model graph: $name" }
+        val rootPath = root.toPath()
+        require(java.nio.file.Files.isDirectory(rootPath) &&
+            !java.nio.file.Files.isSymbolicLink(rootPath)) {
+            "Invalid or symlinked FLUX model directory"
+        }
+        val candidate = File(root, name)
+        require(!java.nio.file.Files.isSymbolicLink(candidate.toPath())) {
+            "Symlinked FLUX graph is not allowed: $name"
+        }
+        val file = candidate.canonicalFile
+        require(file.parentFile == root.canonicalFile && file.isFile && file.length() > 0L) {
+            "Missing or empty model graph: $name"
+        }
         val options = CompiledModel.Options(Accelerator.GPU)
         val model = CompiledModel.create(file.absolutePath, options)
         try {
