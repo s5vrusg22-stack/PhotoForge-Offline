@@ -3,7 +3,7 @@ package com.example.photoforge
 /**
  * Spatial 2x2 packing: [1,32,32,32] NCHW -> [1,256,128].
  * Reverse conversion restores [1,32,32,32].
- * This is layout conversion only, not VAE latent normalization/scaling.
+ * Plain pack/unpack are layout-only. Normalized variants require verified model coefficients.
  */
 object FluxVaePacking {
     const val CHANNELS = 32
