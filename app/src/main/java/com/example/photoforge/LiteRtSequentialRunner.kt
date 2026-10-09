@@ -2,7 +2,6 @@ package com.example.photoforge
 
 import com.google.ai.edge.litert.Accelerator
 import com.google.ai.edge.litert.CompiledModel
-import com.google.ai.edge.litert.Environment
 import java.io.File
 
 /**
@@ -10,7 +9,6 @@ import java.io.File
  * FLUX.2 Klein GPU contract; buffer and model lifetimes are bounded per call.
  */
 class LiteRtSequentialRunner(private val root: File) : AutoCloseable {
-    private val environment = Environment.create()
 
     fun run(name: String, tensors: List<FloatArray>): List<FloatArray> {
         require(name.matches(Regex("(ke_enc[0-2]|kc_(prep|double[01]|single[0-3]|final)|kce_(prep|double[01]|single[0-3]|final)|kv_vae(_enc)?)\\.tflite"))) {
@@ -19,9 +17,7 @@ class LiteRtSequentialRunner(private val root: File) : AutoCloseable {
         val file = File(root, name).canonicalFile
         require(file.parentFile == root.canonicalFile && file.isFile) { "Missing model graph: $name" }
         val options = CompiledModel.Options(Accelerator.GPU)
-        options.gpuOptions = CompiledModel.GpuOptions(
-            precision = CompiledModel.GpuOptions.Precision.FP32)
-        val model = CompiledModel.create(file.absolutePath, options, environment)
+        val model = CompiledModel.create(file.absolutePath, options)
         try {
             val inputs = model.createInputBuffers()
             val outputs = model.createOutputBuffers()
@@ -41,7 +37,5 @@ class LiteRtSequentialRunner(private val root: File) : AutoCloseable {
         }
     }
 
-    override fun close() {
-        environment.close()
-    }
+    override fun close() { /* Graph models and buffers are closed per invocation. */ }
 }
