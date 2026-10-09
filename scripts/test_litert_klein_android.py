@@ -24,7 +24,26 @@ class ManifestTests(unittest.TestCase):
   self.assertEqual(r["found_graphs"],21)
   self.assertTrue(r["graph_and_tokenizer_manifest_complete"])
   self.assertFalse(r["approved_for_app"])
+  self.assertEqual(r["generation_graph_count"],12)
+  self.assertEqual(r["generation_known_minimum_bytes"],1200+1000)
+  self.assertFalse(r["generation_package_complete"])
+  self.assertFalse(r["generation_real_image_created"])
+  self.assertFalse(r["editing_real_image_created"])
+  self.assertFalse(r["disk_size_limit_enforced"])
  def test_unknown_sizes_never_complete(self):
   r=mod.inspect({"siblings":[{"rfilename":"tokenizer/qwen_embed_fp16.bin"}]})
   self.assertFalse(r["graph_and_tokenizer_manifest_complete"])
+  self.assertFalse(r["generation_package_complete"])
+ def test_full_package_above_11_gb_not_rejected(self):
+  names=([f"ke_enc{i}.tflite" for i in range(3)]+["kc_prep.tflite"]
+    +[f"kc_double{i}.tflite" for i in range(2)]
+    +[f"kc_single{i}.tflite" for i in range(4)]+["kc_final.tflite"]
+    +["kce_prep.tflite"]+[f"kce_double{i}.tflite" for i in range(2)]
+    +[f"kce_single{i}.tflite" for i in range(4)]+["kce_final.tflite"]
+    +["kv_vae.tflite","kv_vae_enc.tflite"])
+  r=mod.inspect({"siblings":[{"rfilename":n,"size":650*1024**2} for n in names]+
+    [{"rfilename":"tokenizer/qwen_embed_fp16.bin","size":1000}]})
+  self.assertGreater(r["known_minimum_gib"],11.4)
+  self.assertFalse(r["disk_size_limit_enforced"])
+  self.assertFalse(r["approved_for_app"])
 if __name__=="__main__":unittest.main()
