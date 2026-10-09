@@ -20,6 +20,15 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Download and verify licensed LaMa ONNX weights
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/assets
+          curl --fail --location --retry 3 --connect-timeout 30 \
+            "https://huggingface.co/sapienkit/LaMa-ONNX/resolve/main/lama_fp32.onnx?download=true" \
+            -o app/src/main/assets/lama_fp32.onnx
+          echo "1faef5301d78db7dda502fe59966957ec4b79dd64e16f03ed96913c7a4eb68d6  app/src/main/assets/lama_fp32.onnx" | sha256sum -c -
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
       - uses: actions/upload-artifact@v4
