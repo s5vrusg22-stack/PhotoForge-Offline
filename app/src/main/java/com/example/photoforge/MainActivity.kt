@@ -150,7 +150,7 @@ class MainActivity : Activity() {
         scroll.addView(controls)
         root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 0.75f))
         setContentView(root)
-        prepareBundledModel()
+        status.text = "기본 사진 편집 준비 완료 · AI 객체 제거는 ONNX 모델을 선택하면 사용할 수 있습니다."
     }
 
     private fun selectExpression(value: String) {
