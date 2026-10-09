@@ -42,6 +42,12 @@ def inspect(info):
     tokenizer_unknown=[p for p,size in tokenizer.items() if not isinstance(size,int)]
     tokenizer_bytes=sum(v for v in tokenizer.values() if isinstance(v,int))
     total=graph_bytes+tokenizer_bytes
+    # No runtime inference may be approved from repository metadata alone.
+    # These host operations are explicitly required by the upstream model card.
+    host_ops=["tokenizer","token_embeddings","causal_padding_mask",
+              "text_rotary_tables","image_rotary_tables","flow_scheduler",
+              "latent_pack_unpack","image_normalization","gpu_graph_lifecycle"]
+    host_ops_verified=[]
     # Editing does not require the eight text-to-image kc_* DiT graphs.
     # This is a prospective edit-only package; real host compatibility
     # and completeness must still be checked before release.
@@ -67,6 +73,9 @@ def inspect(info):
         "required_graphs":len(graph_names),"found_graphs":len(graph_names)-len(missing),
         "missing_graphs":missing,"unknown_graph_sizes":unknown,
         "duplicate_paths":duplicate_paths,"invalid_size_files":invalid_size_files,
+        "host_operations_required":host_ops,
+        "host_operations_verified":host_ops_verified,
+        "host_pipeline_complete":False,
         "ambiguous_graphs":ambiguous_graphs,
         "tokenizer_files":tokenizer,"tokenizer_missing":tokenizer_missing,
         "tokenizer_unknown_sizes":tokenizer_unknown,
@@ -102,4 +111,9 @@ def main():
     out.write_text(json.dumps(result,indent=2,ensure_ascii=False))
     print(json.dumps(result,ensure_ascii=False,indent=2)[:15000])
     if result["status"]=="METADATA_ERROR":sys.exit(1)
+    # Missing published model files are actionable CI failures; host-side
+    # operations remain release blockers even when metadata is complete.
+    if result["missing_graphs"] or result["ambiguous_graphs"] or result["duplicate_paths"] or result["invalid_size_files"]:
+        print("ERROR: upstream LiteRT graph manifest changed or is invalid",file=sys.stderr)
+        sys.exit(2)
 if __name__=="__main__":main()
