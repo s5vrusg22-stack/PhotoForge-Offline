@@ -68,13 +68,9 @@ object FluxTensorRouting {
         return editOutput.copyOfRange(0, IMAGE_TOKENS * IMAGE_CHANNELS)
     }
 
-    fun applyVelocity(noise: FloatArray, predicted: FloatArray, sigma: Float, nextSigma: Float) {
+    fun applyVelocity(noise: FloatArray, predicted: FloatArray, sigma: Float, nextSigma: Float, edit: Boolean) {
         requireShape("noise", noise, 1, IMAGE_TOKENS, IMAGE_CHANNELS)
-        require(predicted.size == IMAGE_TOKENS * IMAGE_CHANNELS ||
-            predicted.size == EDIT_IMAGE_TOKENS * IMAGE_CHANNELS) {
-            "Unexpected velocity length: ${predicted.size}"
-        }
-        val velocity = noiseVelocity(predicted, predicted.size == EDIT_IMAGE_TOKENS * IMAGE_CHANNELS)
+        val velocity = noiseVelocity(predicted, edit)
         FlowMatchScheduler.eulerStep(noise, velocity, sigma, nextSigma)
     }
 }
