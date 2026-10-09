@@ -23,6 +23,9 @@ class AuditTests(unittest.TestCase):
         self.assertEqual(len(result["q4_variants"]),1)
         self.assertEqual(result["q4_variants"][0]["bytes"],gb(4))
         self.assertFalse(result["complete_pipeline_size_verified"])
+        self.assertFalse(result["weight_size_within_10gib"])
+        self.assertFalse(result["full_package_under_10gib"])
+        self.assertFalse(result["candidate_approved"])
         self.assertFalse(result["android_runtime_confirmed"])
         self.assertFalse(result["model_editing_confirmed"])
 
