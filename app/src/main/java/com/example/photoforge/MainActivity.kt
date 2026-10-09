@@ -268,9 +268,7 @@ class MainActivity : Activity() {
         }
         val uri: Uri = data?.data ?: return
         try {
-            val decoded = contentResolver.openInputStream(uri).use { input ->
-                BitmapFactory.decodeStream(input) ?: error("지원되지 않는 이미지")
-            }
+            val decoded = decodeScaledImage(uri)
             if (requestCode == pickExpressionReference) {
                 expressionReference = decoded.copy(Bitmap.Config.ARGB_8888, false)
                 status.text = "표정 예시 사진 준비됨 · 실제 참조 이미지 AI 적용은 모델 연동 전입니다."
@@ -301,6 +299,27 @@ class MainActivity : Activity() {
             }
         } catch (e: Exception) {
             Toast.makeText(this, "이미지 처리 실패: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun decodeScaledImage(uri: Uri): Bitmap {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        contentResolver.openInputStream(uri).use { input ->
+            requireNotNull(input) { "파일을 열 수 없습니다." }
+            BitmapFactory.decodeStream(input, null, bounds)
+        }
+        require(bounds.outWidth > 0 && bounds.outHeight > 0) { "지원되지 않는 이미지" }
+        var sample = 1
+        while (bounds.outWidth / sample > 2048 || bounds.outHeight / sample > 2048) {
+            sample *= 2
+        }
+        val options = BitmapFactory.Options().apply {
+            inSampleSize = sample
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
+        return contentResolver.openInputStream(uri).use { input ->
+            requireNotNull(input) { "파일을 다시 열 수 없습니다." }
+            BitmapFactory.decodeStream(input, null, options) ?: error("이미지 디코딩 실패")
         }
     }
 
