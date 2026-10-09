@@ -30,7 +30,9 @@ class MainActivity : Activity() {
     private var rotation = 0f
     private var mirrored = false
     private var brightness = 0
-    private var editMode = "소품 추가"
+    private var editMode = "표정 변경"
+    private var expression = "자연스러운 미소"
+    private var expressionStrength = 0.25f
     private var undoSnapshot: Bitmap? = null
     private val pickImage = 100
     private val pickOverlay = 101
@@ -64,6 +66,26 @@ class MainActivity : Activity() {
             })
         }
         addButton("사진 열기") { pick(pickImage) }
+        controls.addView(TextView(this).apply {
+            text = "1. 표정 변경 · 최우선"
+            textSize = 19f
+            setTextColor(Color.WHITE)
+        })
+        addButton("🙂 자연스러운 미소") { selectExpression("자연스러운 미소") }
+        addButton("😄 활짝 웃기") { selectExpression("활짝 웃기") }
+        addButton("😐 무표정") { selectExpression("무표정") }
+        addButton("😢 슬픈 표정") { selectExpression("슬픈 표정") }
+        addButton("😮 놀란 표정") { selectExpression("놀란 표정") }
+        addButton("😠 화난 표정") { selectExpression("화난 표정") }
+        addButton("표정 변화: 약하게") { expressionStrength = 0.15f; updateExpressionStatus() }
+        addButton("표정 변화: 보통") { expressionStrength = 0.35f; updateExpressionStatus() }
+        addButton("표정 변화: 강하게") { expressionStrength = 0.65f; updateExpressionStatus() }
+        addButton("선택한 표정으로 AI 수정") { requestExpressionEdit() }
+        controls.addView(TextView(this).apply {
+            text = "2. 소품 추가 · 3. 옷 변경 · 4. 자세 변경"
+            textSize = 17f
+            setTextColor(Color.WHITE)
+        })
         promptInput = android.widget.EditText(this).apply {
             hint = "추가할 소품 입력: 안경, 모자, 목걸이"
             setSingleLine(true)
@@ -79,6 +101,7 @@ class MainActivity : Activity() {
         addButton("브러시 작게") { maskView.brushPx = (maskView.brushPx - 12f).coerceAtLeast(12f) }
         addButton("브러시 크게") { maskView.brushPx = (maskView.brushPx + 12f).coerceAtMost(160f) }
         addButton("선택 영역만 AI로 지우기") { executeInpaint() }
+        addButton("표정 변경 모드") { editMode = "표정 변경"; updateExpressionStatus() }
         addButton("소품 추가 모드") { editMode = "소품 추가"; status.text = "소품 PNG를 선택해 합성하세요." }
         addButton("옷 변경 모드") { editMode = "옷 변경"; status.text = "옷 부분을 마스크로 지정하세요. AI 의상 생성 모델은 아직 연결되지 않았습니다." }
         addButton("자세 변경 모드") { editMode = "자세 변경"; status.text = "자세 생성 모델은 아직 연결되지 않았습니다. 원본 보존을 우선합니다." }
@@ -100,6 +123,25 @@ class MainActivity : Activity() {
         root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 0.75f))
         setContentView(root)
         prepareBundledModel()
+    }
+
+    private fun selectExpression(value: String) {
+        editMode = "표정 변경"
+        expression = value
+        updateExpressionStatus()
+    }
+
+    private fun updateExpressionStatus() {
+        status.text = "표정: $expression · 강도 ${(expressionStrength * 100).toInt()}% · AI 생성 모델 연결 전"
+    }
+
+    private fun requestExpressionEdit() {
+        if (current == null) {
+            Toast.makeText(this, "먼저 사진을 열어주세요.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        editMode = "표정 변경"
+        status.text = "표정 '$expression' 선택됨. 실제 얼굴 표정 생성 AI는 아직 연결되지 않아 사진을 변경하지 않았습니다."
     }
 
     private fun applyPromptProp() {
