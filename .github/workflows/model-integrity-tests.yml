@@ -1,0 +1,21 @@
+name: Offline model integrity regression
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/verify_model_assets.py'
+      - 'scripts/test_verify_model_assets.py'
+      - '.github/workflows/model-integrity-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m unittest discover -s scripts -p 'test_verify_model_assets.py' -v
