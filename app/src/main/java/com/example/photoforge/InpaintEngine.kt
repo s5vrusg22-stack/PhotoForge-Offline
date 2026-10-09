@@ -67,8 +67,7 @@ object InpaintEngine {
                             generated.setPixels(resultPixels, 0, SIDE, 0, 0, SIDE, SIDE)
                             val restored = Bitmap.createScaledBitmap(generated, image.width, image.height, true)
                             // Preserve unmasked original pixels, avoiding changes to the entire photo.
-                            val original = image.copy(Bitmap.Config.ARGB_8888, false)
-                            val canvas = android.graphics.Canvas(original)
+                            val original = image.copy(Bitmap.Config.ARGB_8888, true)
                             val fullMask = Bitmap.createScaledBitmap(mask, image.width, image.height, false)
                             val maskPixels = IntArray(image.width * image.height)
                             val restoredPixels = IntArray(image.width * image.height)
