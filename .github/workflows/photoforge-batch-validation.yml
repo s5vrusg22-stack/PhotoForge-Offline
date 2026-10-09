@@ -1,0 +1,41 @@
+name: PhotoForge combined verification
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/**'
+      - '.github/workflows/photoforge-batch-validation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile scripts and detect syntax errors
+        run: python -m compileall -q scripts
+      - name: LiteRT graph and tokenizer regression tests
+        run: python -m unittest discover -s scripts -p 'test_litert_klein_android.py' -v
+      - name: SHA256 and storage regression tests
+        run: python -m unittest discover -s scripts -p 'test_verify_model_assets.py' -v
+      - name: Check upstream LiteRT metadata (no weights)
+        run: python scripts/audit_litert_klein_android.py
+      - name: Upload metadata report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: photoforge-batch-metadata
+          path: reports/litert-klein-android-metadata.json
+          retention-days: 30
+          if-no-files-found: warn
+  device-inference:
+    runs-on: ubuntu-latest
+    needs: offline-regression
+    if: ${{ false }}
+    steps:
+      - run: echo "Real Android GPU inference requires device runner and model weights; not yet configured."
