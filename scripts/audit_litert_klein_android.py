@@ -34,6 +34,15 @@ def inspect(info):
     tokenizer_unknown=[p for p,size in tokenizer.items() if not isinstance(size,int)]
     tokenizer_bytes=sum(v for v in tokenizer.values() if isinstance(v,int))
     total=graph_bytes+tokenizer_bytes
+    # Editing does not require the eight text-to-image kc_* DiT graphs.
+    # This is a prospective edit-only package; real host compatibility
+    # and completeness must still be checked before release.
+    edit_names=[name for name in graph_names if not name.startswith("kc_")]
+    edit_missing=[name for name in edit_names if found[name] is None]
+    edit_unknown=[name for name in edit_names if found[name] is not None and not isinstance(files[found[name]],int)]
+    edit_graph_bytes=sum(files[found[name]] for name in edit_names
+                         if found[name] is not None and isinstance(files[found[name]],int))
+    edit_total=edit_graph_bytes+tokenizer_bytes
     complete=(not missing and not unknown and not tokenizer_missing and not tokenizer_unknown)
     # The manifest may contain additional required sidecars. A model cannot be
     # approved until all host-side assets and a real Android run are validated.
@@ -44,13 +53,20 @@ def inspect(info):
         "tokenizer_unknown_sizes":tokenizer_unknown,
         "known_graph_bytes":graph_bytes,"known_tokenizer_bytes":tokenizer_bytes,
         "known_minimum_bytes":total,"known_minimum_gib":round(total/1024**3,3),
+        "edit_only_graph_count":len(edit_names),
+        "edit_only_missing_graphs":edit_missing,
+        "edit_only_unknown_graph_sizes":edit_unknown,
+        "edit_only_known_minimum_bytes":edit_total,
+        "edit_only_known_minimum_gib":round(edit_total/1024**3,3),
+        "edit_only_known_minimum_within_10gib":edit_total<=LIMIT,
+        "edit_only_package_complete":False,
         "known_minimum_within_10gib":total<=LIMIT,
         "graph_and_tokenizer_manifest_complete":complete,
         "all_runtime_sidecars_verified":False,
         "android_gpu_full_pipeline_tested":False,"galaxy_s25_ultra_tested":False,
         "peak_ram_measured":False,"real_photo_edit_generated":False,
         "approved_for_app":False,
-        "note":"21 graph filenames and tokenizer checked. Minimum size is NOT the full app footprint. Host code, runtime assets, license and real phone inference remain gates."}
+        "note":"21 full graphs vs 13 edit-only graphs. Edit-only size is a minimum, NOT an approved deployable package. Runtime host assets, license and real device inference remain gates."}
 def main():
     out=Path("reports/litert-klein-android-metadata.json");out.parent.mkdir(exist_ok=True,parents=True)
     try:result=inspect(fetch());result["status"]="METADATA_CHECKED"
