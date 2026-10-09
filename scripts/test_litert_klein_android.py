@@ -46,4 +46,23 @@ class ManifestTests(unittest.TestCase):
   self.assertGreater(r["known_minimum_gib"],11.4)
   self.assertFalse(r["disk_size_limit_enforced"])
   self.assertFalse(r["approved_for_app"])
+ def test_invalid_size_and_duplicate_are_reported(self):
+  r=mod.inspect({"siblings":[
+   {"rfilename":"ke_enc0.tflite","size":0},
+   {"rfilename":"ke_enc0.tflite","size":-1},
+   {"rfilename":"kc_final.tflite","size":"not-an-integer"},
+   {"rfilename":"kv_vae.tflite","size":True}]})
+  self.assertIn("ke_enc0.tflite",r["duplicate_paths"])
+  self.assertIn("ke_enc0.tflite",r["invalid_size_files"])
+  self.assertIn("kc_final.tflite",r["invalid_size_files"])
+  self.assertIn("kv_vae.tflite",r["invalid_size_files"])
+  self.assertFalse(r["graph_and_tokenizer_manifest_complete"])
+  self.assertFalse(r["approved_for_app"])
+ def test_ambiguous_graph_paths_never_approved(self):
+  r=mod.inspect({"siblings":[
+   {"rfilename":"model/ke_enc0.tflite","size":100},
+   {"rfilename":"other/ke_enc0.tflite","size":100}]})
+  self.assertIn("ke_enc0.tflite",r["ambiguous_graphs"])
+  self.assertEqual(r["found_graphs"],0)
+  self.assertFalse(r["approved_for_app"])
 if __name__=="__main__":unittest.main()
