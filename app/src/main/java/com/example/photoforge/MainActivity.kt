@@ -555,6 +555,10 @@ class MainActivity : Activity() {
         }.start()
     }
 
+    private fun putPending(values: android.content.ContentValues) {
+        values.put(MediaStore.Images.Media.IS_PENDING, 1)
+    }
+
     private fun saveImage() {
         val image = current ?: return
         try {
@@ -563,9 +567,17 @@ class MainActivity : Activity() {
                 put(MediaStore.Images.Media.MIME_TYPE, "image/png")
                 put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/PhotoForge")
             }
+            putPending(values)
             val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: error("저장 공간 접근 실패")
-            contentResolver.openOutputStream(uri).use { out ->
-                if (out == null || !image.compress(Bitmap.CompressFormat.PNG, 100, out)) error("PNG 저장 실패")
+            try {
+                contentResolver.openOutputStream(uri).use { out ->
+                    if (out == null || !image.compress(Bitmap.CompressFormat.PNG, 100, out)) error("PNG 저장 실패")
+                }
+                val done = android.content.ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }
+                contentResolver.update(uri, done, null, null)
+            } catch (e: Exception) {
+                contentResolver.delete(uri, null, null)
+                throw e
             }
             Toast.makeText(this, "Pictures/PhotoForge에 저장했습니다", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
