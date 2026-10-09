@@ -1,6 +1,11 @@
 name: Small offline image model metadata audit
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/audit_small_image_models.py'
+      - '.github/workflows/small-model-metadata-audit.yml'
 permissions:
   contents: read
 jobs:
