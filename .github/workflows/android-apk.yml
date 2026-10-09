@@ -61,16 +61,27 @@ jobs:
           echo "The object-removal model is not bundled in this build."
       - name: Build debug APK first
         run: gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Verify installable APK package
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          unzip -t "$APK" | tail -1
+          unzip -Z1 "$APK" | grep -qx "AndroidManifest.xml"
+          unzip -Z1 "$APK" | grep -Eq "^classes([0-9]+)?\\.dex$"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -10
       - name: Report APK size and checksum
         shell: bash
         run: |
           ls -lh app/build/outputs/apk/debug/app-debug.apk
           du -h app/build/outputs/apk/debug/app-debug.apk
           sha256sum app/build/outputs/apk/debug/app-debug.apk
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          name: PhotoForge-debug-apk
+          name: PhotoForge-debug.apk
           path: app/build/outputs/apk/debug/app-debug.apk
+          archive: false
           if-no-files-found: error
 
   unit-tests:
