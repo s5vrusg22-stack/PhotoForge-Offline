@@ -1,36 +1,28 @@
-# PhotoForge Offline
+# PhotoForge Offline — original-preserving photo editor
 
-An Android photo editor with local image manipulation and an **ONNX Runtime inpainting integration**. Designed for offline operation.
+## Product scope (October 2026)
+The editor prioritizes **accessory/prop placement, clothing changes, and pose changes**, not hair recoloring. Preserve the source photo outside the selected region.
 
-## Implemented source features
+### Implemented source code
+- Import a photo, select a transparent PNG prop and composite it at the center.
+- Paint/undo/clear masks and run compatible LaMa ONNX **object removal** locally.
+- Select prop/clothing/pose modes in the interface, with clear status messages.
+- One-step undo after PNG compositing or successful LaMa removal.
+- Rotate, mirror, brightness and export PNG.
 
-- Import a photo from Android document picker.
-- Touch-paint an inpainting mask on the displayed image, undo a stroke, clear the mask and change brush size.
-- Choose a **user-provided** compatible `.onnx` inpainting model and copy it to app-private storage.
-- Run ONNX Runtime locally on CPU on a background thread; composite masked output over the original photo.
-- Overlay a transparent PNG (centered), rotate, mirror, adjust brightness and save PNG to `Pictures/PhotoForge`.
-- Dark UI with large touch-friendly controls; no INTERNET permission.
+### Not yet implemented
+- Generative clothes replacement or pose transformation. These require an image-conditioned diffusion or pose-guided model, compatible runtime, model weights, and on-device validation.
+- Text-prompt prop generation; draggable prop layers; production-ready layer undo stack.
+- Verified APK build, model download/checksum, actual Galaxy S25 Ultra inference.
 
-## ONNX model compatibility
+**Do not mistake mode buttons for implemented AI clothes/pose transformations.**
 
-The adapter currently requires a LaMa-style ONNX graph with two float32 inputs named `image` and `mask` (or `img` for image). Expected tensor shapes:
-- `image`: [1, 3, 512, 512] RGB in 0..1
-- `mask`: [1, 1, 512, 512] white=erase
-- output: [1, 3, 512, 512] RGB in 0..1
+### Development acceptance criteria
+1. Install and launch debug APK on Galaxy S25 Ultra.
+2. Load a source portrait and overlay PNG without changing unselected pixels.
+3. Confirm one-step undo restores the previous bitmap.
+4. Confirm a legitimately obtained compatible LaMa ONNX model passes inference on device.
+5. Implement pose/clothing AI only after obtaining a suitable licensed model and validating latency, memory, and preservation quality.
 
-**The app does not include model weights.** Not every model named LaMa uses this exact tensor contract. Users must obtain a legitimately distributable compatible ONNX file separately. The adapter does not generate new objects from text prompts; it fills/removes selected regions according to the chosen model.
-
-## Build and validation
-
-Go to [GitHub Actions](https://github.com/s5vrusg22-stack/PhotoForge-Offline/actions) and open the **Build Android APK** workflow. After a successful run, download the `PhotoForge-debug-apk` artifact.
-
-**Important:** Source is committed, but APK build success and actual ONNX inference on Galaxy S25 Ultra have not been verified. This is an implementation milestone, not a validated production release.
-
-## Known limitations
-
-- Fixed 512x512 inference can distort non-square inputs and soften generated areas.
-- Large photos and model files may cause out-of-memory failures.
-- Model loading currently copies the ONNX file into private storage, requiring extra space.
-- There is no text-guided diffusion, SDXL, FLUX or model-weight download.
-- Overlay is centered, not yet draggable/resizable.
-- Before calling this app finished, verify build logs, APK install, and at least one compatible ONNX model on device.
+## Build
+See [GitHub Actions](https://github.com/s5vrusg22-stack/PhotoForge-Offline/actions).
