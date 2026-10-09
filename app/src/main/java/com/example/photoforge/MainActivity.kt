@@ -25,6 +25,9 @@ class MainActivity : Activity() {
     private var modelFile: java.io.File? = null
     private lateinit var status: TextView
     private lateinit var promptInput: android.widget.EditText
+    private lateinit var expressionInput: android.widget.EditText
+    private var expressionReference: Bitmap? = null
+    private val pickExpressionReference = 103
     private var original: Bitmap? = null
     private var current: Bitmap? = null
     private var rotation = 0f
@@ -71,6 +74,23 @@ class MainActivity : Activity() {
             textSize = 19f
             setTextColor(Color.WHITE)
         })
+        expressionInput = android.widget.EditText(this).apply {
+            hint = "표정 직접 입력: 눈물이 맺힌 채 살짝 웃기"
+            setSingleLine(false)
+            minLines = 2
+            setTextColor(Color.WHITE)
+            setHintTextColor(Color.LTGRAY)
+        }
+        controls.addView(expressionInput)
+        addButton("표정 예시 사진 선택") { pick(pickExpressionReference) }
+        addButton("입력한 표정 사용") {
+            val description = expressionInput.text.toString().trim()
+            if (description.isBlank()) {
+                status.text = "원하는 표정을 문장으로 입력하세요."
+            } else {
+                selectExpression(description)
+            }
+        }
         addButton("🙂 자연스러운 미소") { selectExpression("자연스러운 미소") }
         addButton("😄 활짝 웃기") { selectExpression("활짝 웃기") }
         addButton("😐 무표정") { selectExpression("무표정") }
@@ -142,7 +162,10 @@ class MainActivity : Activity() {
             return
         }
         editMode = "표정 변경"
-        status.text = "표정 '$expression' 선택됨. 실제 얼굴 표정 생성 AI는 아직 연결되지 않아 사진을 변경하지 않았습니다."
+        val custom = expressionInput.text.toString().trim()
+        if (custom.isNotBlank()) expression = custom
+        val referenceInfo = if (expressionReference != null) " · 예시 사진 준비됨" else ""
+        status.text = "표정 '$expression' 선택됨$referenceInfo. 실제 얼굴 표정 생성 AI는 아직 연결되지 않아 사진을 변경하지 않았습니다."
     }
 
     private fun applyPromptProp() {
@@ -216,6 +239,11 @@ class MainActivity : Activity() {
         try {
             val decoded = contentResolver.openInputStream(uri).use { input ->
                 BitmapFactory.decodeStream(input) ?: error("지원되지 않는 이미지")
+            }
+            if (requestCode == pickExpressionReference) {
+                expressionReference = decoded.copy(Bitmap.Config.ARGB_8888, false)
+                status.text = "표정 예시 사진 준비됨 · 실제 참조 이미지 AI 적용은 모델 연동 전입니다."
+                return
             }
             if (requestCode == pickImage) {
                 original = decoded.copy(Bitmap.Config.ARGB_8888, false)
