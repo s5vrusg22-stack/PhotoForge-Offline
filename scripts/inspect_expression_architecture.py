@@ -23,7 +23,7 @@ for file in sorted(base.rglob("config.json")):
 files = sorted(adapter.rglob("*.safetensors"))
 assert files, "PixelSmile adapter weights not found"
 for file in files:
-    with safe_open(str(file), framework="pt", device="cpu") as weights:
+    with safe_open(str(file), framework="np", device="cpu") as weights:
         keys = list(weights.keys())
         prefixes = {}
         for key in keys:
