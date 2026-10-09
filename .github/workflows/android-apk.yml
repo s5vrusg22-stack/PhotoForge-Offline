@@ -84,8 +84,8 @@ jobs:
           assert len(names) == 2 and any("mask" in n.lower() for n in names), names
           feeds = {}
           for inp in session.get_inputs():
-              shape = [int(x) if isinstance(x, int) and x > 0 else 512 for x in inp.shape]
-              shape[0] = 1
+              is_mask = "mask" in inp.name.lower()
+              shape = [1, 1 if is_mask else 3, 512, 512]
               feeds[inp.name] = np.zeros(shape, dtype=np.float32)
           output = session.run(None, feeds)
           assert output and np.isfinite(output[0]).all(), "Non-finite model output"
@@ -119,11 +119,10 @@ jobs:
           ls -lh app/build/outputs/apk/debug/app-debug.apk
           du -h app/build/outputs/apk/debug/app-debug.apk
           sha256sum app/build/outputs/apk/debug/app-debug.apk
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v4
         with:
           name: PhotoForge-debug.apk
           path: app/build/outputs/apk/debug/app-debug.apk
-          archive: false
           if-no-files-found: error
 
   unit-tests:
