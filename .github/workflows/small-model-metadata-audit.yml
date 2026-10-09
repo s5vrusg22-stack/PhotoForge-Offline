@@ -1,0 +1,24 @@
+name: Small offline image model metadata audit
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Inspect Hugging Face metadata without downloading weights
+        run: python scripts/audit_small_image_models.py
+      - name: Upload candidate size report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: small-offline-model-metadata-report
+          path: reports/small-model-metadata.json
+          retention-days: 30
+          if-no-files-found: warn
