@@ -21,7 +21,8 @@ import android.view.ViewGroup
 import java.io.ByteArrayOutputStream
 
 class MainActivity : Activity() {
-    private lateinit var preview: ImageView
+    private lateinit var maskView: MaskCanvas
+    private var modelFile: java.io.File? = null
     private lateinit var status: TextView
     private var original: Bitmap? = null
     private var current: Bitmap? = null
@@ -49,12 +50,8 @@ class MainActivity : Activity() {
             setTextColor(Color.LTGRAY)
         }
         root.addView(status)
-        preview = ImageView(this).apply {
-            adjustViewBounds = true
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            setBackgroundColor(Color.rgb(35, 39, 48))
-        }
-        root.addView(preview, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        maskView = MaskCanvas(this)
+        root.addView(maskView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         val scroll = ScrollView(this)
         val controls = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         fun addButton(label: String, action: () -> Unit) {
@@ -64,6 +61,12 @@ class MainActivity : Activity() {
             })
         }
         addButton("사진 열기") { pick(pickImage) }
+        addButton("ONNX 모델 선택 (LaMa 호환)") { pickModel() }
+        addButton("마스크 한 획 취소") { maskView.undo() }
+        addButton("마스크 전체 지우기") { maskView.clearMask() }
+        addButton("브러시 작게") { maskView.brushPx = (maskView.brushPx - 12f).coerceAtLeast(12f) }
+        addButton("브러시 크게") { maskView.brushPx = (maskView.brushPx + 12f).coerceAtMost(160f) }
+        addButton("AI 인페인팅 실행") { executeInpaint() }
         addButton("PNG 소품 이미지 겹치기 (중앙)") { pick(pickOverlay) }
         addButton("오른쪽 90° 회전") { if (original != null) { rotation += 90f; render() } }
         addButton("좌우 반전") { if (original != null) { mirrored = !mirrored; render() } }
@@ -91,6 +94,7 @@ class MainActivity : Activity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode != RESULT_OK) return
+        if (requestCode == 102) { loadModel(data?.data); return }
         val uri: Uri = data?.data ?: return
         try {
             val decoded = contentResolver.openInputStream(uri).use { input ->
@@ -145,11 +149,68 @@ class MainActivity : Activity() {
                 output
             }
             current = result
-            preview.setImageBitmap(result)
+            maskView.photo = result
             status.text = "${result.width} × ${result.height} · 밝기 ${brightness}"
         } catch (e: OutOfMemoryError) {
             Toast.makeText(this, "이미지가 너무 큽니다. 작은 사진으로 시도하세요.", Toast.LENGTH_LONG).show()
         }
+    }
+
+
+    private fun pickModel() {
+        startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            type = "*/*"
+            addCategory(Intent.CATEGORY_OPENABLE)
+        }, 102)
+    }
+
+    private fun loadModel(uri: Uri?) {
+        if (uri == null) return
+        status.text = "모델 파일을 복사하는 중..."
+        Thread {
+            try {
+                val target = java.io.File(filesDir, "inpaint.onnx")
+                contentResolver.openInputStream(uri).use { input ->
+                    requireNotNull(input) { "파일을 읽을 수 없습니다." }
+                    target.outputStream().use { input.copyTo(it) }
+                }
+                require(target.length() > 0L) { "빈 파일입니다." }
+                modelFile = target
+                runOnUiThread { status.text = "모델 준비됨: ${target.length()/1048576} MB" }
+            } catch (e: Exception) {
+                runOnUiThread { status.text = "모델 읽기 실패: ${e.message}" }
+            }
+        }.start()
+    }
+
+    private fun executeInpaint() {
+        val photo = current ?: return
+        val model = modelFile
+        if (model == null) {
+            Toast.makeText(this, "먼저 LaMa 호환 ONNX 모델을 선택하세요.", Toast.LENGTH_LONG).show()
+            return
+        }
+        if (!maskView.hasMask()) {
+            Toast.makeText(this, "지울 영역을 손가락으로 칠하세요.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val mask = maskView.exportMask()
+        status.text = "기기에서 AI 인페인팅 처리 중..."
+        Thread {
+            try {
+                val output = InpaintEngine.run(model, photo, mask)
+                runOnUiThread {
+                    original = output
+                    rotation = 0f
+                    mirrored = false
+                    brightness = 0
+                    render()
+                    status.text = "AI 인페인팅 완료 · PNG 저장 가능"
+                }
+            } catch (e: Exception) {
+                runOnUiThread { status.text = "AI 실행 실패: ${e.message}" }
+            }
+        }.start()
     }
 
     private fun saveImage() {
