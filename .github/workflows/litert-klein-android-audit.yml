@@ -1,0 +1,32 @@
+name: Android FLUX.2 Klein LiteRT metadata audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/audit_litert_klein_android.py'
+      - 'scripts/test_litert_klein_android.py'
+      - '.github/workflows/litert-klein-android-audit.yml'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run offline audit regression tests
+        run: python -m unittest discover -s scripts -p 'test_litert_klein_android.py' -v
+      - name: Check LiteRT model manifest without downloading weights
+        run: python scripts/audit_litert_klein_android.py
+      - name: Save audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: litert-klein-android-metadata
+          path: reports/litert-klein-android-metadata.json
+          retention-days: 30
+          if-no-files-found: warn
