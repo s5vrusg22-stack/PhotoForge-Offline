@@ -33,10 +33,13 @@ jobs:
           SDK="${ANDROID_HOME}"
           MANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
           if [ ! -x "$MANAGER" ]; then
-            MANAGER="$(find "$SDK/cmdline-tools" -type f -name sdkmanager -print -quit)"
+            MANAGER="$(find "$SDK/cmdline-tools" -type f -name sdkmanager -print -quit || true)"
           fi
-          test -n "$MANAGER" && test -x "$MANAGER"
-          yes | "$MANAGER" --sdk_root="$SDK" --licenses > /dev/null || true
+          if [ -z "$MANAGER" ] || [ ! -x "$MANAGER" ]; then
+            echo "::error::sdkmanager missing from $SDK"
+            exit 1
+          fi
+          "$MANAGER" --sdk_root="$SDK" --licenses < <(yes || true) > /dev/null || true
           "$MANAGER" --sdk_root="$SDK" --install "platforms;android-35" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
