@@ -145,6 +145,14 @@ class MainActivity : Activity() {
                 status.text = "FLUX 생성용 그래프 12개 확인됨 · GPU 추론은 별도 검증 필요"
             } catch (e: Exception) { status.text = "FLUX 파일 검사 실패: ${e.message}" }
         }
+        addButton("기기 메모리·발열 상태 확인") {
+            try {
+                val snapshot = DevicePerformanceMonitor.sample(this)
+                status.text = snapshot.summary() + " · GPU 사용률은 측정되지 않음"
+            } catch (e: Exception) {
+                status.text = "기기 상태 조회 실패: ${e.message}"
+            }
+        }
         addButton("설치된 FLUX 그래프 GPU 컴파일 검사") {
             val graph = java.io.File(filesDir, "flux_models/kc_prep.tflite")
             if (!graph.isFile || graph.length() == 0L) {
