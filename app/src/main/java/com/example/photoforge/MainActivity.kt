@@ -433,7 +433,17 @@ class MainActivity : Activity() {
                     val uri = android.provider.DocumentsContract.buildDocumentUriUsingTree(treeUri, id)
                     val target = java.io.File(directory, name)
                     val partial = java.io.File(directory, "$name.partial")
-                    if (target.isFile && target.length() > 0L) continue
+                    // Existing graph is not trusted merely because it is nonempty.
+                    // Reuse only if its size matches the source provider metadata.
+                    val sourceUri = android.provider.DocumentsContract.buildDocumentUriUsingTree(treeUri, id)
+                    var expectedSize: Long? = null
+                    contentResolver.query(sourceUri, arrayOf(
+                        android.provider.DocumentsContract.Document.COLUMN_SIZE
+                    ), null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst() && !cursor.isNull(0)) expectedSize = cursor.getLong(0)
+                    }
+                    require(expectedSize != null && expectedSize!! > 0L) { "모델 크기 확인 실패: $name" }
+                    if (target.isFile && target.length() == expectedSize) continue
                     runOnUiThread { status.text = "FLUX 모델 복사 중 ${index + 1}/${names.size}: $name" }
                     try {
                         contentResolver.openInputStream(uri).use { input ->
@@ -442,7 +452,7 @@ class MainActivity : Activity() {
                                 input.copyTo(output, 1024 * 1024)
                             }
                         }
-                        require(partial.length() > 0L) { "빈 모델: $name" }
+                        require(partial.length() == expectedSize) { "모델 복사 크기 불일치: $name" }
                         require(partial.renameTo(target)) { "모델 저장 실패: $name" }
                     } finally {
                         partial.delete()
