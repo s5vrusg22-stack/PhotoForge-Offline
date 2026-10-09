@@ -12,10 +12,16 @@ def fetch():
     with urllib.request.urlopen(request,timeout=45) as response:return json.load(response)
 def inspect(info):
     files={}
+    duplicate_paths=[]
+    invalid_size_files=[]
     for item in info.get("siblings",[]):
         name=item.get("rfilename","")
         size=item.get("size")
         if size is None and isinstance(item.get("lfs"),dict):size=item["lfs"].get("size")
+        if name in files:duplicate_paths.append(name)
+        if size is not None and (type(size) is not int or size <= 0):
+            invalid_size_files.append(name)
+            size=None
         files[name]=size
     # 3 text encoder + 8 generation DiT + 8 editing DiT + 2 VAE = 21 graphs.
     graph_names=([f"ke_enc{i}.tflite" for i in range(3)]
@@ -24,7 +30,9 @@ def inspect(info):
         +["kce_prep.tflite"]+[f"kce_double{i}.tflite" for i in range(2)]
         +[f"kce_single{i}.tflite" for i in range(4)]+["kce_final.tflite"]
         +["kv_vae.tflite","kv_vae_enc.tflite"])
-    found={name:next((p for p in files if p==name or p.endswith("/"+name)),None) for name in graph_names}
+    matches={name:[p for p in files if p==name or p.endswith("/"+name)] for name in graph_names}
+    ambiguous_graphs={name:paths for name,paths in matches.items() if len(paths)>1}
+    found={name:(paths[0] if len(paths)==1 else None) for name,paths in matches.items()}
     missing=[name for name,p in found.items() if p is None]
     unknown=[name for name,p in found.items() if p is not None and not isinstance(files[p],int)]
     graph_bytes=sum(files[p] for p in found.values() if p and isinstance(files[p],int))
@@ -51,12 +59,15 @@ def inspect(info):
     generation_graph_bytes=sum(files[found[name]] for name in generation_names
         if found[name] is not None and isinstance(files[found[name]],int))
     generation_total=generation_graph_bytes+tokenizer_bytes
-    complete=(not missing and not unknown and not tokenizer_missing and not tokenizer_unknown)
+    complete=(not missing and not unknown and not tokenizer_missing and not tokenizer_unknown
+              and not duplicate_paths and not invalid_size_files and not ambiguous_graphs)
     # The manifest may contain additional required sidecars. A model cannot be
     # approved until all host-side assets and a real Android run are validated.
     return {"repository":REPO,"license":info.get("cardData",{}).get("license") if isinstance(info.get("cardData"),dict) else None,
         "required_graphs":len(graph_names),"found_graphs":len(graph_names)-len(missing),
         "missing_graphs":missing,"unknown_graph_sizes":unknown,
+        "duplicate_paths":duplicate_paths,"invalid_size_files":invalid_size_files,
+        "ambiguous_graphs":ambiguous_graphs,
         "tokenizer_files":tokenizer,"tokenizer_missing":tokenizer_missing,
         "tokenizer_unknown_sizes":tokenizer_unknown,
         "known_graph_bytes":graph_bytes,"known_tokenizer_bytes":tokenizer_bytes,
