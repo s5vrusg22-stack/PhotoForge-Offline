@@ -45,7 +45,8 @@ object MissingGenerativeModelBackend : LocalGenerativeEditBackend {
     override fun generate(
         image: android.graphics.Bitmap,
         mask: android.graphics.Bitmap,
-        edit: GenerativeEditSpec
+        edit: GenerativeEditSpec,
+        referenceImage: android.graphics.Bitmap?
     ): android.graphics.Bitmap {
         error("표정/소품/의상/자세 생성형 모델 가중치 및 추론 파이프라인이 아직 설치되지 않았습니다.")
     }
