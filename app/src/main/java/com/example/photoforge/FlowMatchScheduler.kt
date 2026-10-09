@@ -25,7 +25,9 @@ object FlowMatchScheduler {
         for (i in latents.indices) {
             val v = velocity[i]
             require(v.isFinite() && latents[i].isFinite()) { "Non-finite latent/velocity" }
-            latents[i] += dt * v
+            val updated = latents[i] + dt * v
+            require(updated.isFinite()) { "Euler step overflow at latent index $i" }
+            latents[i] = updated
         }
     }
 
