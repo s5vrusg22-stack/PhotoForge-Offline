@@ -12,7 +12,7 @@ import kotlin.math.min
 /**
  * Local LaMa-style ONNX inference adapter.
  * Contract: image [1,3,H,W] RGB 0..1, mask [1,1,H,W] 0/1,
- * output [1,3,H,W] RGB 0..1. Models with other signatures are rejected.
+ * output [1,3,H,W] RGB 0..255. Models with other signatures are rejected.
  */
 object InpaintEngine {
     private const val SIDE = 512
@@ -59,7 +59,7 @@ object InpaintEngine {
                             }
                             val values = output.floatBuffer
                             val resultPixels = IntArray(plane)
-                            fun ch(i: Int): Int = (values.get(i) * 255f).toInt().coerceIn(0, 255)
+                            fun ch(i: Int): Int = values.get(i).toInt().coerceIn(0, 255)
                             for (i in 0 until plane) {
                                 resultPixels[i] = Color.rgb(ch(i), ch(plane + i), ch(2 * plane + i))
                             }
