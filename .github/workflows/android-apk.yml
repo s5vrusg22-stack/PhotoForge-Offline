@@ -158,6 +158,12 @@ jobs:
           name: PhotoForge-build-debug-log
           path: build-debug.log
           if-no-files-found: warn
+      - name: Fail build when Kotlin compilation failed
+        if: steps.kotlin_compile.outcome == 'failure'
+        shell: bash
+        run: |
+          echo "::error::Kotlin compilation failed. Open the PhotoForge-kotlin-compile-log artifact and the run summary."
+          exit 1
       - name: Verify installable APK package
         shell: bash
         run: |
