@@ -122,6 +122,14 @@ jobs:
         run: |
           set -o pipefail
           gradle --no-daemon --stacktrace --console=plain :app:assembleDebug 2>&1 | tee build-debug.log
+      - name: Summarize compilation failure
+        if: failure()
+        shell: bash
+        run: |
+          if [ -f build-debug.log ]; then
+            echo "## APK compilation errors" >> "$GITHUB_STEP_SUMMARY"
+            grep -E -A 5 -B 2 '(^e: |^FAILURE:|^\* What went wrong:|Execution failed for task|Could not resolve|error:)' build-debug.log | tail -n 160 >> "$GITHUB_STEP_SUMMARY" || true
+          fi
       - name: Upload APK compilation log
         if: always()
         uses: actions/upload-artifact@v4
