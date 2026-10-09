@@ -13,3 +13,7 @@ android {
   versionName = "1.2"
  }
 }
+
+dependencies {
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.20.0")
+}
