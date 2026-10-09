@@ -400,6 +400,30 @@ class MainActivity : Activity() {
                 }
                 val missing = names.filterNot { available.containsKey(it) }
                 require(missing.isEmpty()) { "폴더에 없는 모델: ${missing.joinToString()}" }
+                // Fail before copying multi-GB graphs if internal storage is insufficient.
+                // Existing files are not counted, but remain subject to later validation.
+                var requiredBytes = 0L
+                for (name in names) {
+                    val existing = java.io.File(directory, name)
+                    if (existing.isFile && existing.length() > 0L) continue
+                    val id = available.getValue(name)
+                    val uri = android.provider.DocumentsContract.buildDocumentUriUsingTree(treeUri, id)
+                    contentResolver.query(uri, arrayOf(android.provider.DocumentsContract.Document.COLUMN_SIZE),
+                        null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst() && !cursor.isNull(0)) {
+                            val bytes = cursor.getLong(0)
+                            require(bytes > 0) { "모델 크기가 잘못됨: $name" }
+                            requiredBytes = Math.addExact(requiredBytes, bytes)
+                        } else {
+                            throw IllegalStateException("모델 크기를 확인할 수 없음: $name")
+                        }
+                    } ?: throw IllegalStateException("모델 크기 조회 실패: $name")
+                }
+                val availableBytes = android.os.StatFs(filesDir.absolutePath).availableBytes
+                val reserve = 512L * 1024 * 1024
+                require(requiredBytes <= availableBytes - reserve) {
+                    "저장 공간 부족: 필요 ${requiredBytes / 1048576} MiB, 여유 ${availableBytes / 1048576} MiB (512 MiB 예약)"
+                }
                 directory.mkdirs()
                 for ((index, name) in names.withIndex()) {
                     val id = available.getValue(name)
