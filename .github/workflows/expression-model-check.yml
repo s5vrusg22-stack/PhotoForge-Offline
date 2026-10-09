@@ -20,6 +20,8 @@ jobs:
           python-version: '3.11'
       - name: Install metadata tools
         run: python -m pip install --quiet huggingface_hub safetensors numpy
+      - name: Test BF16 conversion without downloading models
+        run: python scripts/test_expression_conversion.py
       - name: Inspect model repositories and available files
         run: |
           python - <<'PY'
