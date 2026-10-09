@@ -1,4 +1,5 @@
 name: Build Android APK
+# Rebuild requested: compile and publish diagnostics for APK verification.
 on:
   push:
     branches: [main]
