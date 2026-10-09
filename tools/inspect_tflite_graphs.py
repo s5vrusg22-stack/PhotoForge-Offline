@@ -17,11 +17,17 @@ def inspect(path):
             return inspect_buffer(path, mapped, tflite)
 
 def inspect_buffer(path, data, tflite):
+    if len(data) < 8 or bytes(data[4:8]) != b"TFL3":
+        raise ValueError(f"{path}: invalid TFLite FlatBuffer identifier")
     model = tflite.Model.GetRootAsModel(data, 0)
+    if model.SubgraphsLength() < 1:
+        raise ValueError(f"{path}: model contains no subgraphs")
     graphs = []
     for subgraph_index in range(model.SubgraphsLength()):
         graph = model.Subgraphs(subgraph_index)
         def tensor_at(index):
+            if index < 0 or index >= graph.TensorsLength():
+                raise ValueError(f"{path}: invalid tensor index {index}")
             t = graph.Tensors(index)
             name = t.Name()
             return {
@@ -61,13 +67,15 @@ def main():
                                "single2", "single3", "final")),
                 "kv_vae.tflite", "kv_vae_enc.tflite"}
     actual = [p.name for p in paths]
+    from collections import Counter
+    counts = Counter(actual)
     result["inventory"] = {
         "expected_count": len(expected), "found_count": len(actual),
         "missing": sorted(expected - set(actual)),
         "unexpected": sorted(set(actual) - expected),
-        "duplicate_names": sorted({name for name in actual if actual.count(name) > 1}),
+        "duplicate_names": sorted(name for name, count in counts.items() if count > 1),
     }
-    args.output.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n")
+    args.output.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     for graph in result["graphs"]:
         for sub in graph["subgraphs"]:
             print(graph["file"], "subgraph", sub["subgraph"])
