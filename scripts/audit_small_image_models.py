@@ -41,7 +41,11 @@ def inspect(repo):
                                 if "q4" in f["path"].lower() or "4bit" in f["path"].lower()]
         entry["individual_gguf_under_10gib"] = [f for f in entry["gguf_variants"] if f["bytes"] <= LIMIT]
         entry["complete_pipeline_size_verified"] = False
-        entry["weight_size_within_10gib"]=(not entry["unknown_size_files"] and bool(entry["files"]) and entry["total_known_weight_bytes"]<=LIMIT)
+        # Repository totals may contain mutually exclusive quantizations and
+        # omit the text encoder, VAE, and other required runtime files.
+        entry["weight_size_within_10gib"] = False
+        entry["full_package_under_10gib"] = False
+        entry["candidate_approved"] = False
         entry["status"]="METADATA_OK"
         entry["note"]="GGUF files are ALTERNATIVE quantizations, not a package. Individual transformer sizes exclude encoders, VAE, runtime. No weights downloaded; Android and image editing untested."
     except Exception as e:
