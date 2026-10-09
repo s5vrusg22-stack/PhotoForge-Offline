@@ -16,4 +16,5 @@ android {
 
 dependencies {
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.20.0")
+    implementation("com.google.ai.edge.litert:litert:2.1.0")
 }
