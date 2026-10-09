@@ -4,7 +4,6 @@ import android.app.ActivityManager
 import android.content.Context
 import android.os.BatteryManager
 import android.os.Debug
-import android.os.Process
 import android.os.SystemClock
 
 /**
@@ -30,7 +29,7 @@ object DevicePerformanceMonitor {
     fun sample(context: Context): Snapshot {
         val activity = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val ram = ActivityManager.MemoryInfo().also(activity::getMemoryInfo)
-        val pss = Debug.getPss()
+        val pss = Debug.getPss().toInt()
         val battery = context.registerReceiver(
             null, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)
         )
