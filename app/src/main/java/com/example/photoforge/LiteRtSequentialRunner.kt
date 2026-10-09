@@ -29,12 +29,11 @@ class LiteRtSequentialRunner(private val root: File) : AutoCloseable {
                     require(tensor.isNotEmpty() && tensor.all { it.isFinite() }) {
                         "$name input[$i] must be a nonempty finite FP32 tensor"
                     }
-                    val expectedBytes = inputs[i].size()
-                    val actualBytes = tensor.size.toLong() * Float.SIZE_BYTES
-                    require(actualBytes == expectedBytes.toLong()) {
-                        "$name input[$i] byte size mismatch: expected $expectedBytes, got $actualBytes"
+                    try {
+                        inputs[i].writeFloat(tensor)
+                    } catch (e: IllegalArgumentException) {
+                        throw IllegalArgumentException("$name input[$i] rejected ${tensor.size} FP32 elements; verify exported tensor signature", e)
                     }
-                    inputs[i].writeFloat(tensor)
                 }
                 model.run(inputs, outputs)
                 return outputs.mapIndexed { i, buffer ->
