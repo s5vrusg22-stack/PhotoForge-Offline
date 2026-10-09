@@ -37,8 +37,14 @@ def inspect(info):
     unknown=[name for name,p in found.items() if p is not None and not isinstance(files[p],int)]
     graph_bytes=sum(files[p] for p in found.values() if p and isinstance(files[p],int))
     tokenizer={p:size for p,size in files.items() if p.startswith("tokenizer/")}
-    embed=[p for p in tokenizer if p.endswith("qwen_embed_fp16.bin")]
-    tokenizer_missing=not tokenizer or not embed
+    required_tokenizer=[
+        "tokenizer/qwen_vocab.txt",
+        "tokenizer/qwen_merges.txt",
+        "tokenizer/qwen_special.txt",
+        "tokenizer/qwen_embed_fp16.bin",
+    ]
+    missing_tokenizer=[name for name in required_tokenizer if name not in tokenizer]
+    tokenizer_missing=bool(missing_tokenizer)
     tokenizer_unknown=[p for p,size in tokenizer.items() if not isinstance(size,int)]
     tokenizer_bytes=sum(v for v in tokenizer.values() if isinstance(v,int))
     total=graph_bytes+tokenizer_bytes
