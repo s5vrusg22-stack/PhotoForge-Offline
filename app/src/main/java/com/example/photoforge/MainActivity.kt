@@ -84,6 +84,20 @@ class MainActivity : Activity() {
             setHintTextColor(Color.LTGRAY)
         }
         controls.addView(expressionInput)
+        expressionInput.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                val raw = s?.toString().orEmpty()
+                status.text = if (raw.isBlank()) "한국어 또는 영어 프롬프트를 입력하세요."
+                else try {
+                    val prepared = PromptInputPipeline.prepare(raw)
+                    "프롬프트 준비됨: ${prepared.codePoints}자 · 토크나이저 연결 대기"
+                } catch (e: IllegalArgumentException) {
+                    "프롬프트 오류: ${e.message}"
+                }
+            }
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        })
         addButton("표정 예시 사진 선택") { pick(pickExpressionReference) }
         addButton("입력한 표정 사용") {
             val description = expressionInput.text.toString().trim()
@@ -205,7 +219,13 @@ class MainActivity : Activity() {
         }
         editMode = "표정 변경"
         val custom = expressionInput.text.toString().trim()
-        if (custom.isNotBlank()) expression = custom
+        if (custom.isNotBlank()) {
+            expression = try { PromptInputPipeline.prepare(custom).text }
+            catch (e: IllegalArgumentException) {
+                status.text = "프롬프트 오류: ${e.message}"
+                return
+            }
+        }
         val referenceInfo = if (expressionReference != null) " · 예시 사진 준비됨" else ""
         status.text = "표정 '$expression' 선택됨$referenceInfo. 실제 얼굴 표정 생성 AI는 아직 연결되지 않아 사진을 변경하지 않았습니다."
     }
