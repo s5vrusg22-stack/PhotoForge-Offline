@@ -69,6 +69,28 @@ jobs:
             echo "bundled=false" >> "$GITHUB_OUTPUT"
             echo "::warning::LaMa model could not be verified. APK will build without bundled AI weights; import ONNX manually."
           fi
+      - name: Smoke-test bundled LaMa model
+        if: steps.lama.outputs.bundled == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet numpy onnxruntime
+          python - <<'PY'
+          import numpy as np
+          import onnxruntime as ort
+          path = "app/src/main/assets/lama_fp32.onnx"
+          session = ort.InferenceSession(path, providers=["CPUExecutionProvider"])
+          names = [x.name for x in session.get_inputs()]
+          assert len(names) == 2 and any("mask" in n.lower() for n in names), names
+          feeds = {}
+          for inp in session.get_inputs():
+              shape = [int(x) if isinstance(x, int) and x > 0 else 512 for x in inp.shape]
+              shape[0] = 1
+              feeds[inp.name] = np.zeros(shape, dtype=np.float32)
+          output = session.run(None, feeds)
+          assert output and np.isfinite(output[0]).all(), "Non-finite model output"
+          print("LaMa ONNX CPU inference PASS", output[0].shape)
+          PY
       - name: Build debug APK first
         shell: bash
         run: |
