@@ -30,9 +30,18 @@ class FluxTensorRoutingTest {
     @Test fun editVelocityUpdatesNoiseOnly() {
         val noise = FloatArray(256 * 128) { 1f }
         val prediction = FloatArray(512 * 128) { i -> if (i < 256 * 128) 2f else 999f }
-        FluxTensorRouting.applyVelocity(noise, prediction, 1f, 0.5f)
+        FluxTensorRouting.applyVelocity(noise, prediction, 1f, 0.5f, true)
         assertEquals(0f, noise[0], 0f)
         assertEquals(0f, noise.last(), 0f)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsEditVelocityInGenerationMode() {
+        FluxTensorRouting.applyVelocity(
+            FloatArray(256 * 128),
+            FloatArray(512 * 128),
+            1f, 0.5f, false
+        )
     }
 
     @Test(expected = IllegalArgumentException::class)
