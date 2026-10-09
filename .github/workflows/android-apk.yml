@@ -60,7 +60,17 @@ jobs:
           echo "Fast APK mode: skipping optional LaMa model download and CPU smoke test."
           echo "The object-removal model is not bundled in this build."
       - name: Build debug APK first
-        run: gradle --no-daemon --stacktrace :app:assembleDebug
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle --no-daemon --stacktrace --console=plain :app:assembleDebug 2>&1 | tee build-debug.log
+      - name: Upload compile failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhotoForge-build-error-log
+          path: build-debug.log
+          if-no-files-found: warn
       - name: Verify installable APK package
         shell: bash
         run: |
@@ -107,4 +117,14 @@ jobs:
           test -x "$MANAGER"
           "$MANAGER" --sdk_root="$SDK" --install "platforms;android-35" "build-tools;35.0.0"
       - name: Run JVM unit tests independently
-        run: gradle --no-daemon --stacktrace :app:testDebugUnitTest
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle --no-daemon --stacktrace --console=plain :app:testDebugUnitTest 2>&1 | tee unit-tests.log
+      - name: Upload unit-test failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhotoForge-unit-test-error-log
+          path: unit-tests.log
+          if-no-files-found: warn
