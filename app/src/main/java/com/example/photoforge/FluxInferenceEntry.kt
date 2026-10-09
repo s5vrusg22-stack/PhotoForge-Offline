@@ -9,6 +9,7 @@ import java.io.File
 object FluxInferenceEntry {
     fun validateGraphFiles(directory: File, editing: Boolean) {
         require(directory.isDirectory) { "FLUX model directory does not exist" }
+        require(!java.nio.file.Files.isSymbolicLink(directory.toPath())) { "Symlinked FLUX model directory is not allowed" }
         val prefix = if (editing) "kce" else "kc"
         val names = buildList {
             for (i in 0..2) add("ke_enc$i.tflite")
@@ -22,7 +23,8 @@ object FluxInferenceEntry {
         val root = directory.canonicalFile
         val missing = names.filter { name ->
             val graph = File(root, name).canonicalFile
-            graph.parentFile != root || !graph.isFile || graph.length() == 0L
+            graph.parentFile != root || !graph.isFile || graph.length() == 0L ||
+                java.nio.file.Files.isSymbolicLink(File(root, name).toPath())
         }
         require(missing.isEmpty()) {
             "Missing FLUX graph files: ${missing.joinToString(", ")}"
