@@ -56,7 +56,10 @@ def main():
     parser.add_argument("--output", type=Path, default=Path("models/expression/pixelsmile-lora-fp16.npz"))
     args = parser.parse_args()
     args.output.parent.mkdir(parents=True, exist_ok=True)
+    temporary = args.output.with_name(args.output.name + ".partial")
+    temporary.unlink(missing_ok=True)
     manifest = []
+    overflow_tensors = []
     total = 0
     try:
         with args.input.open("rb") as source:
@@ -69,7 +72,7 @@ def main():
             header = json.loads(source.read(header_size))
             data_start = 8 + header_size
             data_size = args.input.stat().st_size - data_start
-            with zipfile.ZipFile(args.output, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as archive:
+            with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as archive:
                 for key, spec in header.items():
                     if key == "__metadata__":
                         continue
@@ -81,6 +84,13 @@ def main():
                     if len(raw) != end - start:
                         raise ValueError(f"Truncated tensor: {key}")
                     array = convert(raw, spec)
+                    if spec["dtype"] in ("BF16", "F32", "F64"):
+                        source_values = (np.frombuffer(raw, dtype="<u2").astype(np.uint32) << 16).view(np.float32) if spec["dtype"] == "BF16" else np.frombuffer(raw, dtype=DTYPES[spec["dtype"]])
+                        overflows = int(np.count_nonzero(np.isfinite(source_values) & np.isinf(array.reshape(-1))))
+                        if overflows:
+                            overflow_tensors.append({"name": key, "overflow_count": overflows})
+                            raise ValueError(f"FP16 finite-to-infinity overflow in {key}: {overflows} values")
+                        del source_values
                     payload_io = io.BytesIO()
                     np.save(payload_io, array, allow_pickle=False)
                     payload = payload_io.getvalue()
@@ -90,7 +100,7 @@ def main():
                     total += array.nbytes
                     print(f"Converted and verified tensor {len(manifest)}: {key}", flush=True)
                 archive.writestr("manifest.json", json.dumps({"format": "pixelsmile-lora-npz-v1", "tensors": manifest}))
-        with zipfile.ZipFile(args.output) as archive:
+        with zipfile.ZipFile(temporary) as archive:
             if archive.testzip() is not None:
                 raise ValueError("Archive CRC check failed")
             recorded = json.loads(archive.read("manifest.json"))["tensors"]
@@ -110,7 +120,9 @@ def main():
                     if recovered.shape != expected.shape or recovered.dtype != expected.dtype or not np.array_equal(recovered.tobytes(), expected.tobytes()):
                         raise ValueError(f"Archive tensor mismatch: {item['name']}")
                     del expected, recovered
+        temporary.replace(args.output)
         report = {
+            "overflow_tensors": overflow_tensors,
             "output": str(args.output),
             "tensor_count": len(manifest),
             "tensor_payload_bytes": total,
@@ -121,7 +133,7 @@ def main():
         (args.output.parent / "adapter-conversion-report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
         print(json.dumps(report, indent=2))
     except Exception:
-        args.output.unlink(missing_ok=True)
+        temporary.unlink(missing_ok=True)
         raise
 
 
