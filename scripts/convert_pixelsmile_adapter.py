@@ -9,7 +9,6 @@ import hashlib
 import json
 import zipfile
 from pathlib import Path
-from safetensors import safe_open
 import mmap
 import struct
 import numpy as np
@@ -20,7 +19,8 @@ def main():
     ap.add_argument("--input", type=Path, default=Path("models/expression/adapter/PixelSmile-preview.safetensors"))
     ap.add_argument("--output", type=Path, default=Path("models/expression/pixelsmile-lora-fp16.npz"))
     args = ap.parse_args()
-    assert args.input.is_file(), f"Missing weights: {args.input}"
+    if not args.input.is_file():
+        raise FileNotFoundError(f"Missing weights: {args.input}")
     args.output.parent.mkdir(parents=True, exist_ok=True)
     count = 0
     total = 0
@@ -28,7 +28,11 @@ def main():
     # Parse the safetensors header directly: NumPy safetensors cannot read BF16.
     with args.input.open("rb") as source_file:
         with mmap.mmap(source_file.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+            if len(mm) < 8:
+                raise ValueError("Invalid safetensors: missing header length")
             header_size = struct.unpack_from("<Q", mm, 0)[0]
+            if header_size > len(mm) - 8:
+                raise ValueError("Invalid safetensors: header exceeds file size")
             header = json.loads(mm[8:8 + header_size])
             data_start = 8 + header_size
             with zipfile.ZipFile(args.output, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as archive:
@@ -36,6 +40,8 @@ def main():
                     if key == "__metadata__":
                         continue
                     start, end = spec["data_offsets"]
+                    if not (0 <= start <= end <= len(mm) - data_start):
+                        raise ValueError(f"Invalid tensor offsets: {key}")
                     raw = memoryview(mm)[data_start + start:data_start + end]
                     dtype = spec["dtype"]
                     if dtype == "BF16":
@@ -52,6 +58,11 @@ def main():
                         if array.dtype.kind == "f":
                             array = array.astype(np.float16)
                     array = array.reshape(spec["shape"])
+                    if dtype == "BF16":
+                        sample = np.frombuffer(mm, dtype="<u2", count=min(32, (end-start)//2), offset=data_start+start).astype(np.uint32) << 16
+                        expected = sample.view(np.float32).astype(np.float16)
+                        if not np.array_equal(array.reshape(-1)[:len(expected)].view(np.uint16), expected.view(np.uint16)):
+                            raise ValueError(f"BF16 sample verification failed: {key}")
                     del raw
                     buf = io.BytesIO()
                     np.save(buf, array, allow_pickle=False)
