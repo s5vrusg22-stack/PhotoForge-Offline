@@ -117,7 +117,7 @@ class FluxGraphExecutor(private val runner: (String, List<FloatArray>) -> List<F
             val predicted = invoke("${mode}_final", listOf(joint,
                 host.timeEmbeddings[step]), 1)[0]
             FluxTensorRouting.applyVelocity(noise, predicted,
-                host.sigmas[step], host.sigmas[step + 1])
+                host.sigmas[step], host.sigmas[step + 1], editing)
         }
         onStage("kv_vae")
         val vaeInput = host.decodeLatents(noise)
