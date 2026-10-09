@@ -37,4 +37,30 @@ object FluxVaePacking {
             }
         return result
     }
+    /**
+     * Model-specific normalization is explicit, never inferred. The exported
+     * graph must confirm whether this convention is appropriate.
+     */
+    fun packNormalized(nchw: FloatArray, scale: Float, shift: Float): FloatArray {
+        validateNormalization(scale, shift)
+        return pack(nchw).also { values ->
+            for (i in values.indices) values[i] = (values[i] - shift) * scale
+            require(values.all { it.isFinite() }) { "Non-finite normalized VAE latent" }
+        }
+    }
+
+    fun unpackNormalized(tokens: FloatArray, scale: Float, shift: Float): FloatArray {
+        validateNormalization(scale, shift)
+        val raw = tokens.copyOf()
+        FluxTensorRouting.requireShape("normalized VAE tokens", raw, 1, PACKED_TOKENS, PACKED_CHANNELS)
+        for (i in raw.indices) raw[i] = raw[i] / scale + shift
+        require(raw.all { it.isFinite() }) { "Non-finite denormalized VAE latent" }
+        return unpack(raw)
+    }
+
+    private fun validateNormalization(scale: Float, shift: Float) {
+        require(scale.isFinite() && scale > 0f && shift.isFinite()) {
+            "VAE normalization requires a finite positive scale and finite shift"
+        }
+    }
 }
