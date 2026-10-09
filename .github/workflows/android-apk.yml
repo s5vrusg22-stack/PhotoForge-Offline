@@ -44,7 +44,7 @@ jobs:
           "$MANAGER" --sdk_root="$SDK" --install "platforms;android-35" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
+          gradle-version: '8.11.1'
       - name: Build environment diagnostics
         shell: bash
         run: |
@@ -199,7 +199,7 @@ jobs:
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
+          gradle-version: '8.11.1'
       - name: Configure SDK for test compilation
         shell: bash
         run: |
