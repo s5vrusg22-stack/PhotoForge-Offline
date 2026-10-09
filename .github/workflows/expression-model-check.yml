@@ -7,6 +7,11 @@ on:
         required: true
         type: boolean
         default: false
+      confirm_large_download:
+        description: "Type DOWNLOAD_54GB to permit a fresh download; otherwise use saved-artifact verification"
+        required: false
+        type: string
+        default: ""
 permissions:
   contents: read
 jobs:
@@ -34,6 +39,15 @@ jobs:
           PY
       - name: Prepare download manifest
         run: python scripts/prepare_expression_model.py
+      - name: Block accidental 54GB re-download
+        if: ${{ inputs.download_weights }}
+        env:
+          CONFIRM: ${{ inputs.confirm_large_download }}
+        run: |
+          if [ "$CONFIRM" != "DOWNLOAD_54GB" ]; then
+            echo "::error::54GB download blocked. Use verify-saved-pixelsmile workflow to reuse stored weights, or explicitly type DOWNLOAD_54GB."
+            exit 1
+          fi
       - name: Download expression model weights (opt-in)
         if: ${{ inputs.download_weights }}
         run: python scripts/prepare_expression_model.py --download
