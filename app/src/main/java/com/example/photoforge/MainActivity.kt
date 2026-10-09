@@ -39,6 +39,7 @@ class MainActivity : Activity() {
     private var undoSnapshot: Bitmap? = null
     private val pickImage = 100
     private val pickOverlay = 101
+    private val pickLiteRtGraph = 104
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -117,6 +118,12 @@ class MainActivity : Activity() {
         addButton("입력한 소품 적용 (기본 도형)") { applyPromptProp() }
         controls.addView(TextView(this).apply { text = "소품 위치: 사진에서 원하는 곳을 손가락으로 칠한 후 적용하세요."; setTextColor(Color.LTGRAY) })
         addButton("ONNX 모델 선택 (LaMa 호환)") { pickModel() }
+        addButton("LiteRT GPU 그래프 로딩 테스트") {
+            startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                type = "*/*"
+                addCategory(Intent.CATEGORY_OPENABLE)
+            }, pickLiteRtGraph)
+        }
         addButton("마스크 한 획 취소") { maskView.undo() }
         addButton("마스크 전체 지우기") { maskView.clearMask() }
         addButton("브러시 작게") { maskView.brushPx = (maskView.brushPx - 12f).coerceAtLeast(12f) }
@@ -235,6 +242,30 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode != RESULT_OK) return
         if (requestCode == 102) { loadModel(data?.data); return }
+        if (requestCode == pickLiteRtGraph) {
+            val uri = data?.data ?: return
+            status.text = "LiteRT GPU 그래프 파일을 읽고 있습니다..."
+            Thread {
+                val result = try {
+                    val graph = java.io.File(cacheDir, "photoforge_graph_probe.tflite")
+                    contentResolver.openInputStream(uri).use { input ->
+                        requireNotNull(input) { "파일을 열 수 없습니다." }
+                        graph.outputStream().use { output -> input.copyTo(output, 1024 * 1024) }
+                    }
+                    LiteRtGraphProbe.compileGpu(this, graph)
+                } catch (e: Exception) {
+                    LiteRtGraphProbe.Result("선택 파일", false, 0, 0, 0, e.message)
+                } catch (e: OutOfMemoryError) {
+                    LiteRtGraphProbe.Result("선택 파일", false, 0, 0, 0, "메모리 부족: " + e.message)
+                }
+                runOnUiThread {
+                    status.text = if (result.success)
+                        "GPU 그래프 로딩 성공: ${result.graph}, ${result.milliseconds}ms, PSS ${result.pssKbBefore}→${result.pssKbAfter}KB (이미지 생성 아님)"
+                    else "GPU 그래프 로딩 실패: ${result.error}"
+                }
+            }.start()
+            return
+        }
         val uri: Uri = data?.data ?: return
         try {
             val decoded = contentResolver.openInputStream(uri).use { input ->
