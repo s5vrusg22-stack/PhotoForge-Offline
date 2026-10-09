@@ -24,6 +24,7 @@ class MainActivity : Activity() {
     private lateinit var maskView: MaskCanvas
     private var modelFile: java.io.File? = null
     private lateinit var status: TextView
+    private lateinit var promptInput: android.widget.EditText
     private var original: Bitmap? = null
     private var current: Bitmap? = null
     private var rotation = 0f
@@ -63,6 +64,15 @@ class MainActivity : Activity() {
             })
         }
         addButton("사진 열기") { pick(pickImage) }
+        promptInput = android.widget.EditText(this).apply {
+            hint = "추가할 소품 입력: 안경, 모자, 목걸이"
+            setSingleLine(true)
+            setTextColor(Color.WHITE)
+            setHintTextColor(Color.LTGRAY)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT
+        }
+        controls.addView(promptInput)
+        addButton("입력한 소품 적용 (기본 도형)") { applyPromptProp() }
         addButton("ONNX 모델 선택 (LaMa 호환)") { pickModel() }
         addButton("마스크 한 획 취소") { maskView.undo() }
         addButton("마스크 전체 지우기") { maskView.clearMask() }
@@ -83,13 +93,43 @@ class MainActivity : Activity() {
         addButton("원본으로 초기화") { rotation = 0f; mirrored = false; brightness = 0; render() }
         addButton("PNG로 저장") { saveImage() }
         controls.addView(TextView(this).apply {
-            text = "소품: 투명 PNG 합성 가능 · 옷/자세: 생성 AI 모델 연동 전 · AI 지우기: LaMa ONNX"
+            text = "소품 단어 입력은 현재 기본 도형 3종만 지원합니다. 자유로운 AI 소품 생성 및 의상·자세 생성은 모델 통합 전입니다."
             setTextColor(Color.LTGRAY)
         })
         scroll.addView(controls)
         root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 0.75f))
         setContentView(root)
         prepareBundledModel()
+    }
+
+    private fun applyPromptProp() {
+        val source = current ?: run {
+            Toast.makeText(this, "먼저 사진을 열어주세요.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (editMode != "소품 추가") {
+            status.text = "옷/자세의 AI 생성 모델은 아직 연결되지 않았습니다."
+            return
+        }
+        val prompt = promptInput.text.toString().trim()
+        if (prompt.isEmpty()) {
+            status.text = "소품 이름을 입력하세요."
+            return
+        }
+        val layer = PromptPropRenderer.render(prompt, source.width, source.height)
+        if (layer == null) {
+            status.text = "지원되는 기본 소품: 안경, 모자, 목걸이. 임의 단어 AI 생성은 아직 미지원."
+            return
+        }
+        val merged = source.copy(Bitmap.Config.ARGB_8888, true)
+        Canvas(merged).drawBitmap(layer, 0f, 0f, null)
+        undoSnapshot = source.copy(Bitmap.Config.ARGB_8888, false)
+        original = merged
+        rotation = 0f
+        mirrored = false
+        brightness = 0
+        render()
+        status.text = "기본 도형 소품 적용됨 · AI 생성 아님 · 되돌리기 가능"
     }
 
     private fun pick(request: Int) {
