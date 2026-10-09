@@ -30,6 +30,13 @@ class FluxGraphExecutor(private val runner: (String, List<FloatArray>) -> List<F
 
     fun run(host: HostTensors, onStage: (String) -> Unit = {}): FloatArray {
         val editing = host.referenceImageChw != null
+        // Do not allocate multi-GB GPU graphs when mandatory VAE transforms are absent.
+        val vaeProbe = host.decodeLatents(host.initialNoise.copyOf())
+        FluxTensorRouting.requireShape("VAE decoder input preflight", vaeProbe, 1, 32, 32, 32)
+        if (editing) {
+            val referenceProbe = host.encodeReference(FloatArray(32 * 32 * 32))
+            FluxTensorRouting.requireShape("VAE reference tokens preflight", referenceProbe, 1, 256, 128)
+        }
         val mode = if (editing) "kce" else "kc"
         FluxTensorRouting.requireShape("input embeddings", host.inputsEmbeds, 1, 512, 2560)
         FluxTensorRouting.requireShape("noise", host.initialNoise, 1, 256, 128)
