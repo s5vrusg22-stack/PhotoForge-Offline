@@ -86,5 +86,14 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Configure SDK for test compilation
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          MANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$MANAGER"
+          "$MANAGER" --sdk_root="$SDK" --install "platforms;android-35" "build-tools;35.0.0"
       - name: Run JVM unit tests independently
         run: gradle --no-daemon --stacktrace :app:testDebugUnitTest
