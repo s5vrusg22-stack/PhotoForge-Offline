@@ -275,6 +275,8 @@ class MainActivity : Activity() {
                 return
             }
             if (requestCode == pickImage) {
+                maskView.clearMask()
+                undoSnapshot = null
                 original = decoded.copy(Bitmap.Config.ARGB_8888, false)
                 rotation = 0f
                 mirrored = false
@@ -389,10 +391,19 @@ class MainActivity : Activity() {
                     target.outputStream().use { input.copyTo(it) }
                 }
                 require(target.length() > 0L) { "빈 파일입니다." }
+                ai.onnxruntime.OrtSession.SessionOptions().use { options ->
+                    ai.onnxruntime.OrtEnvironment.getEnvironment().createSession(target.absolutePath, options).use { session ->
+                        val names = session.inputNames
+                        require(names.size == 2 && names.any { it.contains("mask", true) }) {
+                            "LaMa 호환 모델이 아닙니다. 입력: $names"
+                        }
+                    }
+                }
                 modelFile = target
-                runOnUiThread { status.text = "모델 준비됨: ${target.length()/1048576} MB" }
+                runOnUiThread { status.text = "LaMa 호환 ONNX 모델 확인됨: ${target.length()/1048576} MB" }
             } catch (e: Exception) {
-                runOnUiThread { status.text = "모델 읽기 실패: ${e.message}" }
+                modelFile = null
+                runOnUiThread { status.text = "모델 검증 실패: ${e.message}" }
             }
         }.start()
     }
