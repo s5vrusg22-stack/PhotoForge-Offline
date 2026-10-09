@@ -2,20 +2,34 @@
 """No-download audit for Android FLUX.2 Klein LiteRT edit package.
 All outputs are metadata only: never claim on-device execution.
 """
-import json,sys,urllib.request
+import json,sys,time,urllib.error,urllib.request
 from pathlib import Path
 REPO="litert-community/FLUX.2-klein-4B-LiteRT"
 REFERENCE_BYTES=10*1024**3  # reference only, not an installation limit
 def fetch():
     request=urllib.request.Request("https://huggingface.co/api/models/"+REPO+"?blobs=true",
         headers={"User-Agent":"PhotoForge-LiteRT-Metadata-Audit/1.0"})
-    with urllib.request.urlopen(request,timeout=45) as response:return json.load(response)
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(request,timeout=30) as response:
+                payload=json.load(response)
+            if not isinstance(payload,dict) or not isinstance(payload.get("siblings"),list):
+                raise ValueError("Hugging Face response missing siblings array")
+            return payload
+        except (urllib.error.URLError,TimeoutError) as exc:
+            if attempt==2:raise
+            time.sleep(2**attempt)
 def inspect(info):
+    if not isinstance(info,dict) or not isinstance(info.get("siblings"),list):
+        raise ValueError("Missing or malformed Hugging Face siblings metadata")
     files={}
     duplicate_paths=[]
     invalid_size_files=[]
-    for item in info.get("siblings",[]):
+    for item in info["siblings"]:
+        if not isinstance(item,dict):raise ValueError("Invalid sibling entry")
         name=item.get("rfilename","")
+        if not isinstance(name,str) or not name or name.startswith("/") or ".." in name.split("/"):
+            raise ValueError("Unsafe or missing model file path")
         size=item.get("size")
         if size is None and isinstance(item.get("lfs"),dict):size=item["lfs"].get("size")
         if name in files:duplicate_paths.append(name)
@@ -120,7 +134,8 @@ def main():
     if result["status"]=="METADATA_ERROR":sys.exit(1)
     # Missing published model files are actionable CI failures; host-side
     # operations remain release blockers even when metadata is complete.
-    if (result["missing_graphs"] or result["missing_tokenizer_files"]
+    if (result["missing_graphs"] or result["unknown_graph_sizes"]
+        or result["missing_tokenizer_files"] or result["tokenizer_unknown_sizes"]
         or result["ambiguous_graphs"] or result["duplicate_paths"]
         or result["invalid_size_files"]):
         print("ERROR: upstream LiteRT graph manifest changed or is invalid",file=sys.stderr)
