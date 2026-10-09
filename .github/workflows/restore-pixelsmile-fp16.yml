@@ -1,0 +1,90 @@
+name: Restore PixelSmile and verify FP16
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Run holding the saved original PixelSmile adapter"
+        required: true
+        type: string
+        default: "37907852786"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install NumPy
+        run: python -m pip install --quiet numpy
+      - name: Run offline BF16 regression tests
+        run: python scripts/test_expression_conversion.py
+      - name: Restore saved PixelSmile original from previous run
+        uses: actions/download-artifact@v4
+        with:
+          name: pixelsmile-adapter-weights
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ github.token }}
+          path: models/expression/adapter
+      - name: Verify restored original file
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import struct, json, hashlib
+          p = Path("models/expression/adapter/PixelSmile-preview.safetensors")
+          assert p.is_file(), f"Missing restored adapter: {p}"
+          with p.open("rb") as f:
+              n = struct.unpack("<Q", f.read(8))[0]
+              assert 0 < n < 100_000_000
+              header = json.loads(f.read(n))
+          assert len([k for k in header if k != "__metadata__"]) == 1440, "Unexpected tensor count"
+          print("Restored original verified:", p.stat().st_size, "bytes, 1440 tensors")
+          PY
+      - name: Disk space before conversion
+        run: df -h .
+      - name: Convert original to FP16 and verify all tensors
+        run: python scripts/convert_pixelsmile_adapter.py
+      - name: Save FP16 artifact and checksum report
+        uses: actions/upload-artifact@v4
+        with:
+          name: pixelsmile-fp16-verified
+          path: |
+            models/expression/pixelsmile-lora-fp16.npz
+            models/expression/adapter-conversion-report.json
+          compression-level: 0
+          retention-days: 30
+          if-no-files-found: error
+  restore_verify:
+    needs: convert
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restore FP16 bundle from GitHub Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: pixelsmile-fp16-verified
+          path: restored
+      - name: Verify SHA256, ZIP CRC and tensor manifest
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, json, zipfile
+          folder = Path("restored")
+          bundle = folder / "pixelsmile-lora-fp16.npz"
+          report = json.loads((folder / "adapter-conversion-report.json").read_text())
+          sha = hashlib.sha256()
+          with bundle.open("rb") as f:
+              for block in iter(lambda: f.read(8 * 1024 * 1024), b""):
+                  sha.update(block)
+          assert sha.hexdigest() == report["sha256"], "Restored SHA256 mismatch"
+          with zipfile.ZipFile(bundle) as z:
+              assert z.testzip() is None, "ZIP CRC failure"
+              manifest = json.loads(z.read("manifest.json"))
+              tensors = manifest["tensors"]
+              assert len(tensors) == report["tensor_count"] == 1440
+              assert all(t["path"] in z.namelist() for t in tensors)
+          print("RESTORE VERIFIED: 1440 tensors; SHA256:", sha.hexdigest())
+          PY
