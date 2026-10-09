@@ -81,3 +81,36 @@ jobs:
         with:
           name: expression-model-manifest
           path: models/expression/manifest.json
+
+  verify_saved_fp16:
+    needs: inspect
+    if: ${{ inputs.download_weights && needs.inspect.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download stored FP16 weights
+        uses: actions/download-artifact@v4
+        with:
+          name: pixelsmile-lora-fp16-bundle
+          path: restored
+      - name: Verify restored archive against recorded SHA256
+        run: |
+          python - <<'PY'
+          import hashlib, json, zipfile
+          from pathlib import Path
+          base = Path("restored")
+          archive = base / "pixelsmile-lora-fp16.npz"
+          report = json.loads((base / "adapter-conversion-report.json").read_text())
+          sha = hashlib.sha256()
+          with archive.open("rb") as f:
+              for chunk in iter(lambda: f.read(8 * 1024 * 1024), b""):
+                  sha.update(chunk)
+          assert sha.hexdigest() == report["sha256"], "Restored file SHA256 mismatch"
+          with zipfile.ZipFile(archive) as z:
+              assert z.testzip() is None, "Restored ZIP CRC mismatch"
+              manifest = json.loads(z.read("manifest.json"))
+              tensors = manifest["tensors"]
+              assert len(tensors) == report["tensor_count"] and tensors
+              for item in tensors:
+                  assert item["path"] in z.namelist()
+          print("RESTORE VERIFIED:", len(tensors), "tensors; SHA256", sha.hexdigest())
+          PY
