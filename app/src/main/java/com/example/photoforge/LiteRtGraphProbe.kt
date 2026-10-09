@@ -24,7 +24,7 @@ object LiteRtGraphProbe {
     fun compileGpu(context: Context, model: File): Result {
         require(model.isFile && model.length() > 0L) { "그래프 파일이 없습니다." }
         require(model.extension == "tflite") { "TFLite 그래프를 선택하세요." }
-        val before = Debug.getPss()
+        val before = Debug.getPss().toInt()
         val start = SystemClock.elapsedRealtime()
         return try {
             CompiledModel.create(
@@ -40,13 +40,13 @@ object LiteRtGraphProbe {
                 }
             }
             Result(model.name, true, SystemClock.elapsedRealtime() - start,
-                before, Debug.getPss(), null)
+                before, Debug.getPss().toInt(), null)
         } catch (e: Exception) {
             Result(model.name, false, SystemClock.elapsedRealtime() - start,
-                before, Debug.getPss(), e.javaClass.simpleName + ": " + e.message)
+                before, Debug.getPss().toInt(), e.javaClass.simpleName + ": " + e.message)
         } catch (e: OutOfMemoryError) {
             Result(model.name, false, SystemClock.elapsedRealtime() - start,
-                before, Debug.getPss(), "GPU/메모리 부족: " + e.message)
+                before, Debug.getPss().toInt(), "GPU/메모리 부족: " + e.message)
         }
     }
 }
