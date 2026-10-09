@@ -150,7 +150,7 @@ class MainActivity : Activity() {
         scroll.addView(controls)
         root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 0.75f))
         setContentView(root)
-        status.text = "기본 사진 편집 준비 완료 · AI 객체 제거는 ONNX 모델을 선택하면 사용할 수 있습니다."
+        prepareBundledModel()
     }
 
     private fun selectExpression(value: String) {
@@ -358,17 +358,32 @@ class MainActivity : Activity() {
     private fun prepareBundledModel() {
         Thread {
             try {
+                val available = assets.list("")?.contains("lama_fp32.onnx") == true
+                if (!available) {
+                    runOnUiThread {
+                        status.text = "기본 편집 준비 완료 · LaMa 모델 미포함: ONNX 모델을 직접 선택하세요."
+                    }
+                    return@Thread
+                }
                 val target = java.io.File(filesDir, "bundled_lama_fp32.onnx")
-                if (!target.exists() || target.length() == 0L) {
+                if (!target.isFile || target.length() == 0L) {
                     assets.open("lama_fp32.onnx").use { input ->
                         target.outputStream().use { output -> input.copyTo(output, 1024 * 1024) }
                     }
                 }
-                require(target.length() > 0L) { "모델 파일이 비어 있습니다." }
+                ai.onnxruntime.OrtSession.SessionOptions().use { options ->
+                    ai.onnxruntime.OrtEnvironment.getEnvironment().createSession(target.absolutePath, options).use { session ->
+                        val names = session.inputNames
+                        require(names.size == 2 && names.any { it.contains("mask", true) }) {
+                            "내장 ONNX 모델 입력 구조가 호환되지 않습니다: $names"
+                        }
+                    }
+                }
                 modelFile = target
-                runOnUiThread { status.text = "오프라인 AI 모델 준비 완료 · 사진을 선택하세요" }
+                runOnUiThread { status.text = "오프라인 LaMa 객체 제거 모델 준비 완료 · 사진을 선택하세요" }
             } catch (e: Exception) {
-                runOnUiThread { status.text = "내장 모델 준비 실패: ${e.message}" }
+                modelFile = null
+                runOnUiThread { status.text = "내장 모델 준비 실패: ${e.message} · ONNX 파일 직접 선택 가능" }
             }
         }.start()
     }
