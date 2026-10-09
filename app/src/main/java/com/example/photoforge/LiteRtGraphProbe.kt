@@ -32,7 +32,12 @@ object LiteRtGraphProbe {
                 CompiledModel.Options(Accelerator.GPU)
             ).use { compiled ->
                 // Loading/compiling only. Real run requires graph-specific tensors.
-                check(compiled.createInputBuffers().isNotEmpty()) { "입력 텐서 없음" }
+                val inputs = compiled.createInputBuffers()
+                try {
+                    check(inputs.isNotEmpty()) { "입력 텐서 없음" }
+                } finally {
+                    inputs.forEach { it.close() }
+                }
             }
             Result(model.name, true, SystemClock.elapsedRealtime() - start,
                 before, Debug.getPss(), null)
