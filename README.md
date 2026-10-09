@@ -34,3 +34,11 @@ A Korean text input is now wired to `PromptPropRenderer`, which draws transparen
 ## Generative AI blocker
 
 LaMa ONNX only removes/fills regions; it cannot synthesize arbitrary prompted objects, clothing or poses. Implementing real prompt-conditioned local generation requires compatible licensed model weights, tokenizer/text encoder, denoising UNet or transformer, scheduler, VAE, image/mask conditioning and possibly pose conditioning. None of those diffusion components is present in this repository yet. Do not advertise free-text AI generation as functional until end-to-end device inference is demonstrated.
+
+## Primary feature: facial expression editing
+
+**Priority order:** 1. expression change, 2. text-entered accessories, 3. clothing change, 4. pose change, 5. LaMa object removal.
+
+The expression UI now exposes six presets (natural smile, broad smile, neutral, sad, surprised, angry) and 15%/35%/65% strength settings. The button does not mutate pixels until an actual generative model is installed and tested. This avoids falsely claiming AI expression edits work.
+
+`GenerativeEditSpec.kt` defines a local image-conditioned model interface and preservation-focused positive/negative prompts. The placeholder backend explicitly reports unavailability. **This is architecture, not a functioning diffusion pipeline.** A real backend must provide compatible model weights, image/mask conditioning, face identity preservation, scheduler and device inference tests. Facial expression editing is more challenging than object removal because preserving the same person's identity matters.
