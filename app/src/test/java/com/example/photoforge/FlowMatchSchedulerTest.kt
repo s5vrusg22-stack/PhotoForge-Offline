@@ -30,4 +30,12 @@ class FlowMatchSchedulerTest {
     fun rejectsNaN() {
         FlowMatchScheduler.eulerStep(floatArrayOf(Float.NaN), floatArrayOf(1f), 1f, 0f)
     }
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsFiniteInputsThatOverflowEulerUpdate() {
+        FlowMatchScheduler.eulerStep(
+            floatArrayOf(Float.MAX_VALUE),
+            floatArrayOf(-Float.MAX_VALUE),
+            1f, 0f
+        )
+    }
 }
