@@ -35,6 +35,20 @@ jobs:
       - name: Download expression model weights (opt-in)
         if: ${{ inputs.download_weights }}
         run: python scripts/prepare_expression_model.py --download
+      - name: Preserve PixelSmile adapter immediately after download
+        if: ${{ inputs.download_weights }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: pixelsmile-adapter-weights
+          path: models/expression/adapter/PixelSmile-preview.safetensors
+          compression-level: 0
+          retention-days: 30
+          if-no-files-found: error
+      - name: Disk usage after download
+        if: ${{ inputs.download_weights }}
+        run: |
+          df -h
+          du -sh models/expression/* 2>/dev/null || true
       - name: Inspect actual model architecture and adapter tensors
         if: ${{ inputs.download_weights }}
         run: python scripts/inspect_expression_architecture.py
@@ -49,15 +63,6 @@ jobs:
           path: |
             models/expression/pixelsmile-lora-fp16.npz
             models/expression/adapter-conversion-report.json
-          compression-level: 0
-          retention-days: 30
-          if-no-files-found: error
-      - name: Preserve PixelSmile adapter
-        if: ${{ inputs.download_weights }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: pixelsmile-adapter-weights
-          path: models/expression/adapter/PixelSmile-preview.safetensors
           compression-level: 0
           retention-days: 30
           if-no-files-found: error
