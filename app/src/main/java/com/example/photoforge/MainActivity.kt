@@ -40,6 +40,7 @@ class MainActivity : Activity() {
     private val pickImage = 100
     private val pickOverlay = 101
     private val pickLiteRtGraph = 104
+    private val pickFluxDirectory = 105
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -118,6 +119,18 @@ class MainActivity : Activity() {
         addButton("입력한 소품 적용 (기본 도형)") { applyPromptProp() }
         controls.addView(TextView(this).apply { text = "소품 위치: 사진에서 원하는 곳을 손가락으로 칠한 후 적용하세요."; setTextColor(Color.LTGRAY) })
         addButton("ONNX 모델 선택 (LaMa 호환)") { pickModel() }
+        addButton("FLUX 모델 폴더 가져오기 (6GB 이상 공간 필요)") {
+            startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+            }, pickFluxDirectory)
+        }
+        addButton("FLUX 모델 12개 설치 확인") {
+            val directory = java.io.File(filesDir, "flux_models")
+            try {
+                FluxInferenceEntry.validateGraphFiles(directory, false)
+                status.text = "FLUX 생성용 그래프 12개 확인됨 · GPU 추론은 별도 검증 필요"
+            } catch (e: Exception) { status.text = "FLUX 파일 검사 실패: ${e.message}" }
+        }
         addButton("LiteRT GPU 그래프 로딩 테스트") {
             startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                 type = "*/*"
@@ -242,6 +255,10 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode != RESULT_OK) return
         if (requestCode == 102) { loadModel(data?.data); return }
+        if (requestCode == pickFluxDirectory) {
+            data?.data?.let { importFluxDirectory(it) }
+            return
+        }
         if (requestCode == pickLiteRtGraph) {
             val uri = data?.data ?: return
             status.text = "LiteRT GPU 그래프 파일을 읽고 있습니다..."
@@ -302,6 +319,68 @@ class MainActivity : Activity() {
         } catch (e: Exception) {
             Toast.makeText(this, "이미지 처리 실패: ${e.message}", Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun importFluxDirectory(treeUri: Uri) {
+        status.text = "FLUX 모델 파일을 검사하고 복사하는 중... (약 6.6GB)"
+        Thread {
+            val directory = java.io.File(filesDir, "flux_models")
+            try {
+                val rootId = android.provider.DocumentsContract.getTreeDocumentId(treeUri)
+                val childrenUri = android.provider.DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, rootId)
+                val available = mutableMapOf<String, String>()
+                contentResolver.query(childrenUri, arrayOf(
+                    android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                    android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                    android.provider.DocumentsContract.Document.COLUMN_MIME_TYPE
+                ), null, null, null)?.use { cursor ->
+                    while (cursor.moveToNext()) {
+                        if (cursor.getString(2) != android.provider.DocumentsContract.Document.MIME_TYPE_DIR) {
+                            available[cursor.getString(1)] = cursor.getString(0)
+                        }
+                    }
+                }
+                val names = buildList {
+                    for (i in 0..2) add("ke_enc$i.tflite")
+                    add("kc_prep.tflite")
+                    for (i in 0..1) add("kc_double$i.tflite")
+                    for (i in 0..3) add("kc_single$i.tflite")
+                    add("kc_final.tflite")
+                    add("kv_vae.tflite")
+                }
+                val missing = names.filterNot { available.containsKey(it) }
+                require(missing.isEmpty()) { "폴더에 없는 모델: ${missing.joinToString()}" }
+                directory.mkdirs()
+                for ((index, name) in names.withIndex()) {
+                    val id = available.getValue(name)
+                    val uri = android.provider.DocumentsContract.buildDocumentUriUsingTree(treeUri, id)
+                    val target = java.io.File(directory, name)
+                    val partial = java.io.File(directory, "$name.partial")
+                    if (target.isFile && target.length() > 0L) continue
+                    runOnUiThread { status.text = "FLUX 모델 복사 중 ${index + 1}/${names.size}: $name" }
+                    try {
+                        contentResolver.openInputStream(uri).use { input ->
+                            requireNotNull(input) { "읽을 수 없는 모델: $name" }
+                            partial.outputStream().buffered(1024 * 1024).use { output ->
+                                input.copyTo(output, 1024 * 1024)
+                            }
+                        }
+                        require(partial.length() > 0L) { "빈 모델: $name" }
+                        require(partial.renameTo(target)) { "모델 저장 실패: $name" }
+                    } finally {
+                        partial.delete()
+                    }
+                }
+                FluxInferenceEntry.validateGraphFiles(directory, false)
+                runOnUiThread {
+                    status.text = "FLUX 모델 12개 설치 완료 · 실제 GPU 추론은 아직 검증되지 않음"
+                }
+            } catch (e: Exception) {
+                runOnUiThread { status.text = "FLUX 모델 설치 실패: ${e.message}" }
+            } catch (e: OutOfMemoryError) {
+                runOnUiThread { status.text = "FLUX 모델 설치 중 메모리 부족" }
+            }
+        }.start()
     }
 
     private fun decodeScaledImage(uri: Uri): Bitmap {
