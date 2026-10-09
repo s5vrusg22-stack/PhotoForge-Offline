@@ -7,7 +7,7 @@ try:
  import torch,diffusers,peft
  from diffusers import QwenImageEditPlusPipeline,QwenImageTransformer2DModel
  from PIL import Image
- import scripts.run_qwen_pixelsmile_inference as runner
+ import run_qwen_pixelsmile_inference as runner
  report["versions"]={"torch":torch.__version__,"diffusers":diffusers.__version__,"peft":peft.__version__}
  pipeline_sig=inspect.signature(QwenImageEditPlusPipeline.__call__)
  params=pipeline_sig.parameters
