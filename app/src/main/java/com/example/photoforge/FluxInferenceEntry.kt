@@ -12,7 +12,9 @@ object FluxInferenceEntry {
         host: FluxGraphExecutor.HostTensors,
         onStage: (String) -> Unit = {}
     ): FloatArray {
-        ExperimentalModelFeatures.requireQwenEnabled()
+        require(modelDirectory.isDirectory) { "FLUX model directory does not exist" }
+        // Verified embeddings may be provided by an external host; the disabled
+        // Qwen text-encoding feature must not block graph-only inference.
         LiteRtSequentialRunner(modelDirectory).use { gpu ->
             return FluxGraphExecutor(gpu::run).run(host, onStage)
         }
