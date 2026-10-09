@@ -30,6 +30,9 @@ def inspect_buffer(path, data, tflite):
                 "shape": [int(t.Shape(i)) for i in range(t.ShapeLength())],
                 "shape_signature": [int(t.ShapeSignature(i)) for i in range(t.ShapeSignatureLength())],
                 "type_code": int(t.Type()),
+                "type_name": next((name for name in dir(tflite.TensorType)
+                    if name.isupper() and getattr(tflite.TensorType, name) == int(t.Type())),
+                    "UNKNOWN"),
                 "elements_x4_if_fp32": 4 * __import__("math").prod(
                     [int(t.Shape(i)) for i in range(t.ShapeLength())]
                 ),
@@ -45,6 +48,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("directory", type=Path)
     parser.add_argument("--output", type=Path, default=Path("graph-signatures.json"))
+    parser.add_argument("--require-complete", action="store_true",
+                        help="Fail if any of the 21 FLUX graph files are missing")
     args = parser.parse_args()
     paths = sorted(args.directory.rglob("*.tflite"))
     if not paths:
@@ -73,6 +78,8 @@ def main():
     print("Wrote", args.output)
     if result["inventory"]["duplicate_names"]:
         raise SystemExit("Duplicate graph basenames found; inspect report")
+    if args.require_complete and (result["inventory"]["missing"] or result["inventory"]["unexpected"]):
+        raise SystemExit("FLUX graph inventory differs from expected 21 files; inspect report")
 
 if __name__ == "__main__":
     main()
