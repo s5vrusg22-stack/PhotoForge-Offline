@@ -1,0 +1,28 @@
+name: Qwen image pipeline runtime API verification
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install runtime libraries without model weights
+        run: python -m pip install --quiet 'torch>=2.4' 'diffusers>=0.35' 'transformers>=4.51,<5' 'accelerate>=1.0' 'peft>=0.17' pillow safetensors
+      - name: Validate real Diffusers API and image IO
+        run: python scripts/check_qwen_runtime_api.py
+      - name: Save runtime verification report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qwen-runtime-api-report
+          path: |
+            qwen-runtime-report.json
+            runtime-test-input.png
+          retention-days: 30
+          if-no-files-found: warn
