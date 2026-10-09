@@ -63,7 +63,10 @@ class MainActivity : Activity() {
         maskView = MaskCanvas(this)
         root.addView(maskView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         val scroll = ScrollView(this)
-        val controls = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val controls = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(8, 8, 8, 24)
+        }
         fun addButton(label: String, action: () -> Unit) {
             controls.addView(Button(this).apply {
                 text = label
@@ -205,7 +208,7 @@ class MainActivity : Activity() {
             setTextColor(Color.LTGRAY)
         })
         scroll.addView(controls)
-        root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 0.75f))
+        root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.35f))
         setContentView(root)
         prepareBundledModel()
     }
@@ -424,7 +427,7 @@ class MainActivity : Activity() {
                 require(requiredBytes <= availableBytes - reserve) {
                     "저장 공간 부족: 필요 ${requiredBytes / 1048576} MiB, 여유 ${availableBytes / 1048576} MiB (512 MiB 예약)"
                 }
-                directory.mkdirs()
+                require(directory.isDirectory || directory.mkdirs()) { "모델 저장 폴더 생성 실패" }
                 for ((index, name) in names.withIndex()) {
                     val id = available.getValue(name)
                     val uri = android.provider.DocumentsContract.buildDocumentUriUsingTree(treeUri, id)
