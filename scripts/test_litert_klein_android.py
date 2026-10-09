@@ -72,4 +72,18 @@ class ManifestTests(unittest.TestCase):
   self.assertIn("ke_enc0.tflite",r["ambiguous_graphs"])
   self.assertEqual(r["found_graphs"],0)
   self.assertFalse(r["approved_for_app"])
+ def test_reject_malformed_upstream_metadata(self):
+  for payload in ({}, {"siblings":None}, {"siblings":"bad"}, {"siblings":[None]},
+                  {"siblings":[{"rfilename":"../escape.tflite","size":1}]},
+                  {"siblings":[{"rfilename":"/absolute.tflite","size":1}]}):
+   with self.subTest(payload=payload),self.assertRaises(ValueError):
+    mod.inspect(payload)
+ def test_unknown_graph_size_is_reported(self):
+  r=mod.inspect({"siblings":[{"rfilename":"kc_prep.tflite"}]})
+  self.assertIn("kc_prep.tflite",r["unknown_graph_sizes"])
+  self.assertFalse(r["graph_and_tokenizer_manifest_complete"])
+ def test_empty_graph_size_is_invalid(self):
+  r=mod.inspect({"siblings":[{"rfilename":"ke_enc0.tflite","size":0}]})
+  self.assertIn("ke_enc0.tflite",r["invalid_size_files"])
+  self.assertFalse(r["approved_for_app"])
 if __name__=="__main__":unittest.main()
