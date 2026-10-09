@@ -7,7 +7,8 @@ data class GenerativeEditSpec(
     val kind: GenerativeEditKind,
     val prompt: String,
     val strength: Float,
-    val preserveOutsideMask: Boolean = true
+    val preserveOutsideMask: Boolean = true,
+    val hasReferenceImage: Boolean = false
 ) {
     init {
         require(prompt.isNotBlank()) { "편집 지시문이 필요합니다." }
@@ -34,7 +35,8 @@ interface LocalGenerativeEditBackend {
     fun generate(
         image: android.graphics.Bitmap,
         mask: android.graphics.Bitmap,
-        edit: GenerativeEditSpec
+        edit: GenerativeEditSpec,
+        referenceImage: android.graphics.Bitmap? = null
     ): android.graphics.Bitmap
 }
 
