@@ -67,6 +67,24 @@ jobs:
           name: PhotoForge-kotlin-compile-log
           path: kotlin-compile.log
           if-no-files-found: warn
+      - name: Inspect available FLUX graph signatures
+        if: steps.kotlin_compile.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find app/src/main/assets -type f -name '*.tflite' -print -quit 2>/dev/null | grep -q .; then
+            python -m pip install --quiet flatbuffers tflite
+            python tools/inspect_tflite_graphs.py app/src/main/assets --output graph-signatures.json
+          else
+            echo "No FLUX .tflite graph files bundled; metadata inspection pending model import."
+          fi
+      - name: Upload FLUX graph signature report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhotoForge-flux-graph-signatures
+          path: graph-signatures.json
+          if-no-files-found: ignore
       - name: Download and verify LaMa ONNX model
         if: steps.kotlin_compile.outcome == 'success'
         id: lama
