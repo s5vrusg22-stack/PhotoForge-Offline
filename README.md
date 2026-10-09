@@ -42,3 +42,11 @@ LaMa ONNX only removes/fills regions; it cannot synthesize arbitrary prompted ob
 The expression UI now exposes six presets (natural smile, broad smile, neutral, sad, surprised, angry) and 15%/35%/65% strength settings. The button does not mutate pixels until an actual generative model is installed and tested. This avoids falsely claiming AI expression edits work.
 
 `GenerativeEditSpec.kt` defines a local image-conditioned model interface and preservation-focused positive/negative prompts. The placeholder backend explicitly reports unavailability. **This is architecture, not a functioning diffusion pipeline.** A real backend must provide compatible model weights, image/mask conditioning, face identity preservation, scheduler and device inference tests. Facial expression editing is more challenging than object removal because preserving the same person's identity matters.
+
+## Free-text expression and reference photo (October 2026)
+
+The expression editor now accepts arbitrary Korean descriptions in a multiline text field. A separate Android document picker loads an optional reference photo. Preset buttons remain shortcuts, not the only way to specify expressions. The reference is held in memory and is not sent to a server. The generative backend interface accepts an optional reference bitmap, but **there is no installed model that can consume it yet**; the Generate action displays an explicit unavailable message and does not change the photo.
+
+## Weight preparation for expression-model research
+
+`python scripts/prepare_expression_model.py` writes a local manifest. On a suitably equipped workstation, install `huggingface_hub` and run `python scripts/prepare_expression_model.py --download` to fetch the PixelSmile adapter and Qwen-Image-Edit-2511 base weights. This is opt-in due to storage and bandwidth. **Downloading is not quantization, conversion, or Android inference.** No PixelSmile/Qwen weights are shipped in the APK. Expression reference-image conditioning must be verified separately.
