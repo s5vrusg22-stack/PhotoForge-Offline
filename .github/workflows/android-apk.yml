@@ -104,7 +104,11 @@ jobs:
           else
             echo "LaMa model not bundled; app supports importing a local ONNX file."
           fi
-      - name: Build debug APK first
+      - name: Compile Kotlin and package debug APK
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle --no-daemon --stacktrace --console=plain :app:assembleDebug 2>&1 | tee build-debug.log
         shell: bash
         run: |
           set -o pipefail
