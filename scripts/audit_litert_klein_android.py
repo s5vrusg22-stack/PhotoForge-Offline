@@ -77,7 +77,7 @@ def inspect(info):
         "generation_real_image_created":False,
         "editing_real_image_created":False,
         "disk_size_limit_enforced":False,
-        "known_minimum_within_10gib":total<=LIMIT,
+        "known_minimum_within_10gib":total<=REFERENCE_BYTES,
         "graph_and_tokenizer_manifest_complete":complete,
         "all_runtime_sidecars_verified":False,
         "android_gpu_full_pipeline_tested":False,"galaxy_s25_ultra_tested":False,
