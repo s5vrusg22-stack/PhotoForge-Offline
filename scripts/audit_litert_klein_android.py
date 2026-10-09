@@ -5,7 +5,7 @@ All outputs are metadata only: never claim on-device execution.
 import json,sys,urllib.request
 from pathlib import Path
 REPO="litert-community/FLUX.2-klein-4B-LiteRT"
-LIMIT=10*1024**3
+REFERENCE_BYTES=10*1024**3  # reference only, not an installation limit
 def fetch():
     request=urllib.request.Request("https://huggingface.co/api/models/"+REPO+"?blobs=true",
         headers={"User-Agent":"PhotoForge-LiteRT-Metadata-Audit/1.0"})
@@ -43,6 +43,14 @@ def inspect(info):
     edit_graph_bytes=sum(files[found[name]] for name in edit_names
                          if found[name] is not None and isinstance(files[found[name]],int))
     edit_total=edit_graph_bytes+tokenizer_bytes
+    generation_names=[name for name in graph_names if name.startswith("ke_") or
+        name.startswith("kc_") or name=="kv_vae.tflite"]
+    generation_missing=[name for name in generation_names if found[name] is None]
+    generation_unknown=[name for name in generation_names
+        if found[name] is not None and not isinstance(files[found[name]],int)]
+    generation_graph_bytes=sum(files[found[name]] for name in generation_names
+        if found[name] is not None and isinstance(files[found[name]],int))
+    generation_total=generation_graph_bytes+tokenizer_bytes
     complete=(not missing and not unknown and not tokenizer_missing and not tokenizer_unknown)
     # The manifest may contain additional required sidecars. A model cannot be
     # approved until all host-side assets and a real Android run are validated.
@@ -58,15 +66,24 @@ def inspect(info):
         "edit_only_unknown_graph_sizes":edit_unknown,
         "edit_only_known_minimum_bytes":edit_total,
         "edit_only_known_minimum_gib":round(edit_total/1024**3,3),
-        "edit_only_known_minimum_within_10gib":edit_total<=LIMIT,
+        "edit_only_known_minimum_within_10gib":edit_total<=REFERENCE_BYTES,
         "edit_only_package_complete":False,
+        "generation_graph_count":len(generation_names),
+        "generation_missing_graphs":generation_missing,
+        "generation_unknown_graph_sizes":generation_unknown,
+        "generation_known_minimum_bytes":generation_total,
+        "generation_known_minimum_gib":round(generation_total/1024**3,3),
+        "generation_package_complete":False,
+        "generation_real_image_created":False,
+        "editing_real_image_created":False,
+        "disk_size_limit_enforced":False,
         "known_minimum_within_10gib":total<=LIMIT,
         "graph_and_tokenizer_manifest_complete":complete,
         "all_runtime_sidecars_verified":False,
         "android_gpu_full_pipeline_tested":False,"galaxy_s25_ultra_tested":False,
         "peak_ram_measured":False,"real_photo_edit_generated":False,
         "approved_for_app":False,
-        "note":"21 full graphs vs 13 edit-only graphs. Edit-only size is a minimum, NOT an approved deployable package. Runtime host assets, license and real device inference remain gates."}
+        "note":"21 full graphs, 13 edit-only, 12 generation-only (overlap shared). Both are metadata minima, NOT validated deployable packages. User allows >11.4 GB disk. RAM and on-device edit/generation still untested."}
 def main():
     out=Path("reports/litert-klein-android-metadata.json");out.parent.mkdir(exist_ok=True,parents=True)
     try:result=inspect(fetch());result["status"]="METADATA_CHECKED"
