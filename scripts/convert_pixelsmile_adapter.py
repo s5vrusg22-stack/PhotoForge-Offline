@@ -53,13 +53,13 @@ def main():
                             array = array.astype(np.float16)
                     array = array.reshape(spec["shape"])
                     del raw
-                buf = io.BytesIO()
-                np.save(buf, array, allow_pickle=False)
-                payload = buf.getvalue()
-                archive.writestr(f"tensors/{count:06d}.npy", payload)
-                manifest.append({"name": key, "path": f"tensors/{count:06d}.npy", "shape": list(array.shape), "dtype": str(array.dtype)})
-                total += array.nbytes
-                count += 1
+                    buf = io.BytesIO()
+                    np.save(buf, array, allow_pickle=False)
+                    payload = buf.getvalue()
+                    archive.writestr(f"tensors/{count:06d}.npy", payload)
+                    manifest.append({"name": key, "path": f"tensors/{count:06d}.npy", "shape": list(array.shape), "dtype": str(array.dtype)})
+                    total += array.nbytes
+                    count += 1
             archive.writestr("manifest.json", json.dumps({"format": "pixelsmile-lora-npz-v1", "tensors": manifest}, ensure_ascii=False))
     with zipfile.ZipFile(args.output) as archive:
         assert len([n for n in archive.namelist() if n.startswith("tensors/")]) == count
