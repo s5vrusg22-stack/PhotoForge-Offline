@@ -23,6 +23,8 @@ jobs:
         run: python -m unittest discover -s scripts -p 'test_litert_klein_android.py' -v
       - name: SHA256 and storage regression tests
         run: python -m unittest discover -s scripts -p 'test_verify_model_assets.py' -v
+      - name: Model weight preparation and SHA256 regression tests
+        run: python -m unittest discover -s scripts -p 'test_prepare_litert_weights.py' -v
       - name: Check upstream LiteRT metadata (no weights)
         run: python scripts/audit_litert_klein_android.py
       - name: Upload metadata report
