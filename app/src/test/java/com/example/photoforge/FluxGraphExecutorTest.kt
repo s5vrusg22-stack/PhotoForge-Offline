@@ -39,6 +39,13 @@ class FluxGraphExecutorTest {
         assertEquals(8, names.count { it.startsWith("kc_double") })
         assertEquals(16, names.count { it.startsWith("kc_single") })
         assertEquals(4, names.count { it == "kc_final.tflite" })
-        assertEquals("kv_vae.tflite", names.last())
+        val expected = mutableListOf("ke_enc0.tflite", "ke_enc1.tflite", "ke_enc2.tflite")
+        repeat(4) {
+            expected += listOf("kc_prep.tflite", "kc_double0.tflite", "kc_double1.tflite",
+                "kc_single0.tflite", "kc_single1.tflite", "kc_single2.tflite",
+                "kc_single3.tflite", "kc_final.tflite")
+        }
+        expected += "kv_vae.tflite"
+        assertEquals(expected, names)
     }
 }
