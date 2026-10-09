@@ -50,6 +50,18 @@ def main():
     if not paths:
         raise SystemExit("No .tflite graph files found")
     result = {"graphs": [inspect(path) for path in paths]}
+    expected = {*(f"ke_enc{i}.tflite" for i in range(3)),
+                *(f"{mode}_{part}.tflite" for mode in ("kc", "kce")
+                  for part in ("prep", "double0", "double1", "single0", "single1",
+                               "single2", "single3", "final")),
+                "kv_vae.tflite", "kv_vae_enc.tflite"}
+    actual = [p.name for p in paths]
+    result["inventory"] = {
+        "expected_count": len(expected), "found_count": len(actual),
+        "missing": sorted(expected - set(actual)),
+        "unexpected": sorted(set(actual) - expected),
+        "duplicate_names": sorted({name for name in actual if actual.count(name) > 1}),
+    }
     args.output.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n")
     for graph in result["graphs"]:
         for sub in graph["subgraphs"]:
@@ -57,7 +69,10 @@ def main():
             for label in ("inputs", "outputs"):
                 for item in sub[label]:
                     print(" ", label, item["index"], item["name"], item["shape"], "type", item["type_code"])
+    print("Inventory:", json.dumps(result["inventory"], ensure_ascii=False))
     print("Wrote", args.output)
+    if result["inventory"]["duplicate_names"]:
+        raise SystemExit("Duplicate graph basenames found; inspect report")
 
 if __name__ == "__main__":
     main()
