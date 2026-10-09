@@ -81,6 +81,7 @@ class MainActivity : Activity() {
         scroll.addView(controls)
         root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 0.75f))
         setContentView(root)
+        prepareBundledModel()
     }
 
     private fun pick(request: Int) {
@@ -156,6 +157,24 @@ class MainActivity : Activity() {
         }
     }
 
+
+    private fun prepareBundledModel() {
+        Thread {
+            try {
+                val target = java.io.File(filesDir, "bundled_lama_fp32.onnx")
+                if (!target.exists() || target.length() == 0L) {
+                    assets.open("lama_fp32.onnx").use { input ->
+                        target.outputStream().use { output -> input.copyTo(output, 1024 * 1024) }
+                    }
+                }
+                require(target.length() > 0L) { "모델 파일이 비어 있습니다." }
+                modelFile = target
+                runOnUiThread { status.text = "오프라인 AI 모델 준비 완료 · 사진을 선택하세요" }
+            } catch (e: Exception) {
+                runOnUiThread { status.text = "내장 모델 준비 실패: ${e.message}" }
+            }
+        }.start()
+    }
 
     private fun pickModel() {
         startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
