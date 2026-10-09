@@ -37,6 +37,23 @@ class FluxGraphExecutor(private val runner: (String, List<FloatArray>) -> List<F
             "FLUX Klein requires four denoising steps and five sigmas"
         }
         FlowMatchScheduler.validateTimesteps(host.sigmas)
+        // Fail before loading GPU graphs if caller-supplied conditioning is absent
+        // or corrupt. Exact dimensions are model-export-specific and checked
+        // against each LiteRT graph input signature at invocation time.
+        listOf(
+            "encoder mask" to host.encoderMask,
+            "encoder rotary cosine" to host.encoderCos,
+            "encoder rotary sine" to host.encoderSin,
+            "DiT rotary cosine" to host.ditCos,
+            "DiT rotary sine" to host.ditSin
+        ).forEach { (name, tensor) ->
+            require(tensor.isNotEmpty() && tensor.all { it.isFinite() }) {
+                "$name must be a nonempty finite tensor"
+            }
+        }
+        require(host.sigmas.last() == 0f) {
+            "Final diffusion sigma must be zero before VAE decoding"
+        }
         host.timeEmbeddings.forEachIndexed { index, value ->
             FluxTensorRouting.requireShape("temb$index", value, 1, 3072)
         }
