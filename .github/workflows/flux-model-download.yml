@@ -1,0 +1,72 @@
+name: Download FLUX LiteRT models
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Model graph family"
+        required: true
+        type: choice
+        options:
+          - generation
+          - editing
+      revision:
+        description: "Hugging Face model revision"
+        required: true
+        default: main
+        type: string
+permissions:
+  contents: read
+jobs:
+  acquire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check free disk space
+        run: |
+          df -h .
+          python - <<'PY'
+          import shutil
+          assert shutil.disk_usage('.').free > 14 * 1024**3, 'Insufficient space for FLUX download'
+          PY
+      - name: Install model downloader
+        run: python -m pip install --upgrade "huggingface_hub>=0.29,<2"
+      - name: Download and hash FLUX graphs
+        env:
+          HF_HUB_ENABLE_HF_TRANSFER: "0"
+        run: |
+          python scripts/download_flux_litert.py --mode "${{ inputs.mode }}" --revision "${{ inputs.revision }}" --output flux_models
+      - name: Verify downloaded manifest
+        run: |
+          python - <<'PY'
+          import hashlib,json,pathlib
+          root=pathlib.Path('flux_models')
+          manifest=json.loads((root/'flux_manifest.json').read_text())
+          for item in manifest['graphs']:
+              file=root/item['file']
+              assert file.stat().st_size == item['size'],file
+              h=hashlib.sha256()
+              with file.open('rb') as stream:
+                  for chunk in iter(lambda:stream.read(8*1024*1024),b''):
+                      h.update(chunk)
+              assert h.hexdigest()==item['sha256'],file
+          print('VERIFIED',len(manifest['graphs']),'FLUX graphs')
+          PY
+      - name: Upload download manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flux-model-manifest
+          path: flux_models/flux_manifest.json
+          if-no-files-found: warn
+      - name: Upload FLUX graph files
+        uses: actions/upload-artifact@v4
+        with:
+          name: flux-litert-${{ inputs.mode }}
+          path: flux_models/*.tflite
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
