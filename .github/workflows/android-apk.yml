@@ -52,7 +52,22 @@ jobs:
           gradle --version
           echo "ANDROID_HOME=$ANDROID_HOME"
           ls -la "$ANDROID_HOME/platforms/android-35" | head
+      - name: Compile Kotlin first (diagnostic)
+        id: kotlin_compile
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle --no-daemon --stacktrace --console=plain :app:compileDebugKotlin 2>&1 | tee kotlin-compile.log
+      - name: Upload Kotlin compilation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhotoForge-kotlin-compile-log
+          path: kotlin-compile.log
+          if-no-files-found: warn
       - name: Download and verify LaMa ONNX model
+        if: steps.kotlin_compile.outcome == 'success'
         id: lama
         shell: bash
         run: |
@@ -105,6 +120,7 @@ jobs:
             echo "LaMa model not bundled; app supports importing a local ONNX file."
           fi
       - name: Run FLUX routing and scheduler unit tests
+        if: steps.kotlin_compile.outcome == 'success'
         continue-on-error: true
         shell: bash
         run: |
@@ -118,14 +134,19 @@ jobs:
           path: flux-unit-tests.log
           if-no-files-found: warn
       - name: Compile Kotlin and package debug APK
+        if: steps.kotlin_compile.outcome == 'success'
         shell: bash
         run: |
           set -o pipefail
           gradle --no-daemon --stacktrace --console=plain :app:assembleDebug 2>&1 | tee build-debug.log
       - name: Summarize compilation failure
-        if: failure()
+        if: always()
         shell: bash
         run: |
+          if [ -f kotlin-compile.log ]; then
+            echo '## Kotlin compilation diagnostics' >> "$GITHUB_STEP_SUMMARY"
+            grep -E -A 4 -B 2 '(^e: |^FAILURE:|^\\* What went wrong:|Execution failed for task|Could not resolve|error:)' kotlin-compile.log | tail -n 120 >> "$GITHUB_STEP_SUMMARY" || true
+          fi
           if [ -f build-debug.log ]; then
             echo "## APK compilation errors" >> "$GITHUB_STEP_SUMMARY"
             grep -E -A 5 -B 2 '(^e: |^FAILURE:|^\* What went wrong:|Execution failed for task|Could not resolve|error:)' build-debug.log | tail -n 160 >> "$GITHUB_STEP_SUMMARY" || true
