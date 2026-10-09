@@ -131,6 +131,28 @@ class MainActivity : Activity() {
                 status.text = "FLUX 생성용 그래프 12개 확인됨 · GPU 추론은 별도 검증 필요"
             } catch (e: Exception) { status.text = "FLUX 파일 검사 실패: ${e.message}" }
         }
+        addButton("설치된 FLUX 그래프 GPU 컴파일 검사") {
+            val graph = java.io.File(filesDir, "flux_models/kc_prep.tflite")
+            if (!graph.isFile || graph.length() == 0L) {
+                status.text = "FLUX 모델 폴더를 먼저 가져오세요."
+            } else {
+                status.text = "FLUX kc_prep GPU 컴파일 검사 중..."
+                Thread {
+                    val result = try {
+                        LiteRtGraphProbe.compileGpu(this, graph)
+                    } catch (e: Exception) {
+                        LiteRtGraphProbe.Result("kc_prep", false, 0, 0, 0, e.message)
+                    } catch (e: OutOfMemoryError) {
+                        LiteRtGraphProbe.Result("kc_prep", false, 0, 0, 0, "GPU 메모리 부족")
+                    }
+                    runOnUiThread {
+                        status.text = if (result.success)
+                            "FLUX kc_prep GPU 그래프 컴파일 성공 (${result.milliseconds}ms) · 추론 실행은 별도"
+                        else "FLUX kc_prep GPU 컴파일 실패: ${result.error}"
+                    }
+                }.start()
+            }
+        }
         addButton("LiteRT GPU 그래프 로딩 테스트") {
             startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                 type = "*/*"
