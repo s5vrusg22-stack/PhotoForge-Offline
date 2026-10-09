@@ -122,11 +122,11 @@ jobs:
         run: |
           set -o pipefail
           gradle --no-daemon --stacktrace --console=plain :app:assembleDebug 2>&1 | tee build-debug.log
-      - name: Upload compile failure log
-        if: failure()
+      - name: Upload APK compilation log
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: PhotoForge-build-error-log
+          name: PhotoForge-build-debug-log
           path: build-debug.log
           if-no-files-found: warn
       - name: Verify installable APK package
