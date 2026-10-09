@@ -1,6 +1,17 @@
 name: Verify saved PixelSmile tensors and source SHA256
 on:
   workflow_dispatch:
+    inputs:
+      original_run_id:
+        description: "Existing original weights artifact run ID"
+        required: true
+        default: "37907852786"
+        type: string
+      fp16_run_id:
+        description: "Existing verified FP16 artifact run ID"
+        required: true
+        default: "37908864782"
+        type: string
 permissions:
   contents: read
   actions: read
@@ -15,18 +26,39 @@ jobs:
           python-version: '3.11'
       - name: Install NumPy
         run: python -m pip install --quiet numpy
+      - name: Check saved artifacts before downloading
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ORIGINAL_RUN: ${{ inputs.original_run_id }}
+          FP16_RUN: ${{ inputs.fp16_run_id }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          for run, name in ((os.environ["ORIGINAL_RUN"], "pixelsmile-adapter-weights"), (os.environ["FP16_RUN"], "pixelsmile-fp16-verified")):
+              if not run.isdecimal():
+                  raise SystemExit(f"Invalid run ID: {run}")
+              url = f"https://api.github.com/repos/{os.environ['REPO']}/actions/runs/{run}/artifacts?per_page=100"
+              req = urllib.request.Request(url, headers={"Authorization": "Bearer " + os.environ["GH_TOKEN"], "Accept": "application/vnd.github+json"})
+              with urllib.request.urlopen(req) as response:
+                  artifacts = json.load(response)["artifacts"]
+              matches = [a for a in artifacts if a["name"] == name and not a["expired"]]
+              if len(matches) != 1:
+                  raise SystemExit(f"Missing/expired saved artifact '{name}' in run {run}; STOP, do not redownload the base model.")
+              print(f"REUSE {name}: artifact={matches[0]['id']}, bytes={matches[0]['size_in_bytes']}, expires={matches[0]['expires_at']}")
+          PY
       - name: Restore original safetensors
         uses: actions/download-artifact@v4
         with:
           name: pixelsmile-adapter-weights
-          run-id: '37907852786'
+          run-id: ${{ inputs.original_run_id }}
           github-token: ${{ github.token }}
           path: original
       - name: Restore converted FP16 bundle
         uses: actions/download-artifact@v4
         with:
           name: pixelsmile-fp16-verified
-          run-id: '37908864782'
+          run-id: ${{ inputs.fp16_run_id }}
           github-token: ${{ github.token }}
           path: converted
       - name: Verify source SHA256 and every tensor shape and dtype
