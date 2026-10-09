@@ -35,6 +35,25 @@ jobs:
       - name: Download expression model weights (opt-in)
         if: ${{ inputs.download_weights }}
         run: python scripts/prepare_expression_model.py --download
+      - name: Inspect actual model architecture and adapter tensors
+        if: ${{ inputs.download_weights }}
+        run: python scripts/inspect_expression_architecture.py
+      - name: Preserve PixelSmile adapter
+        if: ${{ inputs.download_weights }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: pixelsmile-adapter-weights
+          path: models/expression/adapter/PixelSmile-preview.safetensors
+          compression-level: 0
+          retention-days: 30
+          if-no-files-found: error
+      - name: Preserve model architecture report
+        if: ${{ inputs.download_weights }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: expression-architecture-report
+          path: models/expression/architecture-report.json
+          if-no-files-found: error
       - name: Report current mobile inference gate
         run: |
           echo "Weights metadata checked. Android conversion and on-device inference NOT performed."
