@@ -52,13 +52,23 @@ jobs:
           gradle --version
           echo "ANDROID_HOME=$ANDROID_HOME"
           ls -la "$ANDROID_HOME/platforms/android-35" | head
-      - name: Prepare fast APK build
+      - name: Download and verify LaMa ONNX model
+        id: lama
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p app/src/main/assets
-          echo "Fast APK mode: skipping optional LaMa model download and CPU smoke test."
-          echo "The object-removal model is not bundled in this build."
+          MODEL="app/src/main/assets/lama_fp32.onnx"
+          URL="https://huggingface.co/sapienkit/LaMa-ONNX/resolve/main/lama_fp32.onnx?download=true"
+          if curl --fail --location --retry 3 --connect-timeout 20 --max-time 240 "$URL" -o "$MODEL" &&
+             echo "1faef5301d78db7dda502fe59966957ec4b79dd64e16f03ed96913c7a4eb68d6  $MODEL" | sha256sum -c -; then
+            echo "bundled=true" >> "$GITHUB_OUTPUT"
+            ls -lh "$MODEL"
+          else
+            rm -f "$MODEL"
+            echo "bundled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::LaMa model could not be verified. APK will build without bundled AI weights; import ONNX manually."
+          fi
       - name: Build debug APK first
         shell: bash
         run: |
