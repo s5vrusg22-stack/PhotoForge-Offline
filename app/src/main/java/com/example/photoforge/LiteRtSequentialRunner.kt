@@ -25,9 +25,25 @@ class LiteRtSequentialRunner(private val root: File) : AutoCloseable {
                 require(inputs.size == tensors.size) {
                     "$name expects ${inputs.size} inputs, got ${tensors.size}"
                 }
-                tensors.forEachIndexed { i, tensor -> inputs[i].writeFloat(tensor) }
+                tensors.forEachIndexed { i, tensor ->
+                    require(tensor.isNotEmpty() && tensor.all { it.isFinite() }) {
+                        "$name input[$i] must be a nonempty finite FP32 tensor"
+                    }
+                    val expectedBytes = inputs[i].size()
+                    val actualBytes = tensor.size.toLong() * Float.SIZE_BYTES
+                    require(actualBytes == expectedBytes.toLong()) {
+                        "$name input[$i] byte size mismatch: expected $expectedBytes, got $actualBytes"
+                    }
+                    inputs[i].writeFloat(tensor)
+                }
                 model.run(inputs, outputs)
-                return outputs.map { it.readFloat() }
+                return outputs.mapIndexed { i, buffer ->
+                    val values = buffer.readFloat()
+                    require(values.isNotEmpty() && values.all { it.isFinite() }) {
+                        "$name output[$i] is empty or contains nonfinite values"
+                    }
+                    values
+                }
             } finally {
                 inputs.forEach { it.close() }
                 outputs.forEach { it.close() }
