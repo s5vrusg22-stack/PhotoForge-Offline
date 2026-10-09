@@ -156,6 +156,43 @@ class MainActivity : Activity() {
                 status.text = "기기 상태 조회 실패: ${e.message}"
             }
         }
+        addButton("FLUX SHA-256 무결성 검사") {
+            val graph = java.io.File(filesDir, "flux_models/kc_prep.tflite")
+            if (!graph.isFile) {
+                status.text = "먼저 FLUX 모델을 가져오세요."
+            } else {
+                val field = android.widget.EditText(this).apply {
+                    hint = "신뢰할 수 있는 원본 SHA-256 (64자리)"
+                    inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                        android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                    setSingleLine(true)
+                }
+                android.app.AlertDialog.Builder(this)
+                    .setTitle("kc_prep.tflite SHA-256 검사")
+                    .setMessage("모델 배포처에서 별도로 확인한 SHA-256 값을 입력하세요.")
+                    .setView(field)
+                    .setNegativeButton("취소", null)
+                    .setPositiveButton("검사") { _, _ ->
+                        val expected = field.text.toString().trim()
+                        if (!Regex("[0-9a-fA-F]{64}").matches(expected)) {
+                            status.text = "SHA-256은 64자리 16진수여야 합니다."
+                        } else {
+                            status.text = "SHA-256 계산 중... 대용량 파일은 시간이 걸립니다."
+                            Thread {
+                                try {
+                                    val ok = FluxSha256.verify(graph, expected)
+                                    runOnUiThread {
+                                        status.text = if (ok) "SHA-256 일치 · kc_prep.tflite 무결성 확인"
+                                        else "SHA-256 불일치 · 모델 파일을 사용하지 마세요."
+                                    }
+                                } catch (e: Exception) {
+                                    runOnUiThread { status.text = "SHA-256 검사 실패: ${e.message}" }
+                                }
+                            }.start()
+                        }
+                    }.show()
+            }
+        }
         addButton("설치된 FLUX 그래프 GPU 컴파일 검사") {
             val graph = java.io.File(filesDir, "flux_models/kc_prep.tflite")
             if (!graph.isFile || graph.length() == 0L) {
