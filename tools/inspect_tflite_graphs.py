@@ -10,7 +10,13 @@ from pathlib import Path
 
 def inspect(path):
     import tflite
-    data = path.read_bytes()
+    # Memory-map large (up to ~1 GB) graphs instead of duplicating weights in RAM.
+    import mmap
+    with path.open("rb") as stream:
+        with mmap.mmap(stream.fileno(), 0, access=mmap.ACCESS_READ) as mapped:
+            return inspect_buffer(path, mapped, tflite)
+
+def inspect_buffer(path, data, tflite):
     model = tflite.Model.GetRootAsModel(data, 0)
     graphs = []
     for subgraph_index in range(model.SubgraphsLength()):
@@ -24,7 +30,7 @@ def inspect(path):
                 "shape": [int(t.Shape(i)) for i in range(t.ShapeLength())],
                 "shape_signature": [int(t.ShapeSignature(i)) for i in range(t.ShapeSignatureLength())],
                 "type_code": int(t.Type()),
-                "bytes_if_fp32": 4 * __import__("math").prod(
+                "elements_x4_if_fp32": 4 * __import__("math").prod(
                     [int(t.Shape(i)) for i in range(t.ShapeLength())]
                 ),
             }
@@ -40,7 +46,7 @@ def main():
     parser.add_argument("directory", type=Path)
     parser.add_argument("--output", type=Path, default=Path("graph-signatures.json"))
     args = parser.parse_args()
-    paths = sorted(args.directory.glob("*.tflite"))
+    paths = sorted(args.directory.rglob("*.tflite"))
     if not paths:
         raise SystemExit("No .tflite graph files found")
     result = {"graphs": [inspect(path) for path in paths]}
