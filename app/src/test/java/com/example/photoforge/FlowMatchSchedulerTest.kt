@@ -38,4 +38,17 @@ class FlowMatchSchedulerTest {
             1f, 0f
         )
     }
+    @Test fun overflowDoesNotPartiallyMutateLatents() {
+        val latents = floatArrayOf(3f, Float.MAX_VALUE)
+        val before = latents.copyOf()
+        try {
+            FlowMatchScheduler.eulerStep(
+                latents, floatArrayOf(2f, -Float.MAX_VALUE), 1f, 0f
+            )
+            fail("Expected overflow rejection")
+        } catch (_: IllegalArgumentException) {
+            assertArrayEquals(before, latents, 0f)
+        }
+    }
+
 }
