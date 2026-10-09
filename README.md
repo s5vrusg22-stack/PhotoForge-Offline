@@ -26,3 +26,11 @@ The editor prioritizes **accessory/prop placement, clothing changes, and pose ch
 
 ## Build
 See [GitHub Actions](https://github.com/s5vrusg22-stack/PhotoForge-Offline/actions).
+
+## Text prompt accessory milestone
+
+A Korean text input is now wired to `PromptPropRenderer`, which draws transparent vector accessories for the exact supported keywords **안경 / 모자 / 목걸이** (also basic English synonyms). The result is composited on the photo with one-step undo. This is **not an AI image generator**, and the accessory is not anchored to face/body landmarks.
+
+## Generative AI blocker
+
+LaMa ONNX only removes/fills regions; it cannot synthesize arbitrary prompted objects, clothing or poses. Implementing real prompt-conditioned local generation requires compatible licensed model weights, tokenizer/text encoder, denoising UNet or transformer, scheduler, VAE, image/mask conditioning and possibly pose conditioning. None of those diffusion components is present in this repository yet. Do not advertise free-text AI generation as functional until end-to-end device inference is demonstrated.
