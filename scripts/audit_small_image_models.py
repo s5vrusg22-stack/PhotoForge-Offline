@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """Metadata-only offline image-edit model screening. Never downloads weights."""
-import json, os, sys, urllib.request
+import json, sys, urllib.request
 from pathlib import Path
 
 REPOS = [
     "black-forest-labs/FLUX.2-klein-4B",
-    "tonera/FLUX.2-klein-4B-fp8-diffusers",
     "MXKA/FLUX.2-klein-4B-GGUF",
 ]
 LIMIT = 10 * 1024**3
@@ -32,9 +31,19 @@ def inspect(repo):
                 if size is None:entry["unknown_size_files"].append(name)
                 else:entry["total_known_weight_bytes"]+=size
             if isinstance(size,int):entry["total_known_bytes"]+=size
+        # GGUF repositories usually contain mutually exclusive quantizations.
+        # Never add all Q2/Q3/Q4/Q5 variants together as one deployment package.
+        entry["gguf_variants"] = sorted(
+            [{"path":f["path"],"bytes":f["bytes"],"GiB":round(f["bytes"]/1024**3,3)}
+             for f in entry["files"] if f["path"].lower().endswith(".gguf") and isinstance(f["bytes"],int)],
+            key=lambda x:x["bytes"])
+        entry["q4_variants"] = [f for f in entry["gguf_variants"]
+                                if "q4" in f["path"].lower() or "4bit" in f["path"].lower()]
+        entry["individual_gguf_under_10gib"] = [f for f in entry["gguf_variants"] if f["bytes"] <= LIMIT]
+        entry["complete_pipeline_size_verified"] = False
         entry["weight_size_within_10gib"]=(not entry["unknown_size_files"] and bool(entry["files"]) and entry["total_known_weight_bytes"]<=LIMIT)
         entry["status"]="METADATA_OK"
-        entry["note"]="No weights downloaded. Weight sizes exclude unreported and runtime assets. Android and real image editing untested."
+        entry["note"]="GGUF files are ALTERNATIVE quantizations, not a package. Individual transformer sizes exclude encoders, VAE, runtime. No weights downloaded; Android and image editing untested."
     except Exception as e:
         entry["status"]="METADATA_ERROR";entry["error"]=str(e)
     return entry
@@ -47,7 +56,7 @@ def main():
     out.write_text(json.dumps(report,ensure_ascii=False,indent=2))
     for c in report["candidates"]:
         print(c["repo"],c["status"],"known_weight_GiB",round(c["total_known_weight_bytes"]/1024**3,2),
-              "unknown_files",len(c["unknown_size_files"]),"within_limit",c.get("weight_size_within_10gib"))
+              "unknown_files",len(c["unknown_size_files"]),"individual_Q4",c.get("q4_variants",[]),"full_pipeline_verified",False)
         if "error" in c:print("ERROR:",c["error"])
     print("NO MODEL APPROVED: full package, Android backend, peak RAM and real edit remain unverified")
     if all(c["status"]=="METADATA_ERROR" for c in report["candidates"]):sys.exit(1)
