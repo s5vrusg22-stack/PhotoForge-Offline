@@ -52,7 +52,7 @@ def main():
     args=parser.parse_args()
     try:
         result=verify(Path(args.root),json.loads(Path(args.manifest).read_text()))
-        code=0 if result["ok"] else 2
+        code=0 if result["ok"] and result["fresh_install_space_sufficient"] else 2
     except (ValueError,OSError,KeyError,TypeError,json.JSONDecodeError) as exc:
         result={"ok":False,"error":str(exc)};code=2
     output=Path(args.report);output.parent.mkdir(parents=True,exist_ok=True)
