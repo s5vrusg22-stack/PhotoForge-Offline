@@ -78,6 +78,7 @@ def inspect(info):
         "host_pipeline_complete":False,
         "ambiguous_graphs":ambiguous_graphs,
         "tokenizer_files":tokenizer,"tokenizer_missing":tokenizer_missing,
+        "missing_tokenizer_files":missing_tokenizer,
         "tokenizer_unknown_sizes":tokenizer_unknown,
         "known_graph_bytes":graph_bytes,"known_tokenizer_bytes":tokenizer_bytes,
         "known_minimum_bytes":total,"known_minimum_gib":round(total/1024**3,3),
@@ -113,7 +114,9 @@ def main():
     if result["status"]=="METADATA_ERROR":sys.exit(1)
     # Missing published model files are actionable CI failures; host-side
     # operations remain release blockers even when metadata is complete.
-    if result["missing_graphs"] or result["ambiguous_graphs"] or result["duplicate_paths"] or result["invalid_size_files"]:
+    if (result["missing_graphs"] or result["missing_tokenizer_files"]
+        or result["ambiguous_graphs"] or result["duplicate_paths"]
+        or result["invalid_size_files"]):
         print("ERROR: upstream LiteRT graph manifest changed or is invalid",file=sys.stderr)
         sys.exit(2)
 if __name__=="__main__":main()
