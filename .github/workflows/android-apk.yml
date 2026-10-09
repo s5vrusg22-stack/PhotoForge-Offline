@@ -122,10 +122,6 @@ jobs:
         run: |
           set -o pipefail
           gradle --no-daemon --stacktrace --console=plain :app:assembleDebug 2>&1 | tee build-debug.log
-        shell: bash
-        run: |
-          set -o pipefail
-          gradle --no-daemon --stacktrace --console=plain :app:assembleDebug 2>&1 | tee build-debug.log
       - name: Upload compile failure log
         if: failure()
         uses: actions/upload-artifact@v4
