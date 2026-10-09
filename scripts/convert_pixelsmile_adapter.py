@@ -86,13 +86,6 @@ def main():
                     payload = payload_io.getvalue()
                     entry = f"tensors/{len(manifest):06d}.npy"
                     archive.writestr(entry, payload)
-                    # Verify the actual archive entry, not just the in-memory array.
-                    with archive.open(entry) as saved:
-                        recovered = np.load(saved, allow_pickle=False)
-                    if recovered.shape != array.shape or recovered.dtype != array.dtype or not np.array_equal(
-                        recovered.view(np.uint8), array.view(np.uint8)
-                    ):
-                        raise ValueError(f"Stored tensor verification failed: {key}")
                     manifest.append({"name": key, "path": entry, "shape": list(array.shape), "dtype": str(array.dtype)})
                     total += array.nbytes
                     print(f"Converted and verified tensor {len(manifest)}: {key}", flush=True)
@@ -103,6 +96,20 @@ def main():
             recorded = json.loads(archive.read("manifest.json"))["tensors"]
             if not recorded or len(recorded) != len(manifest):
                 raise ValueError("Tensor manifest mismatch")
+            with args.input.open("rb") as source:
+                source.seek(8)
+                header_size = data_start - 8
+                source.seek(8 + header_size)
+                for item in recorded:
+                    spec = header[item["name"]]
+                    start, end = spec["data_offsets"]
+                    source.seek(8 + header_size + start)
+                    expected = convert(source.read(end - start), spec)
+                    with archive.open(item["path"]) as stored:
+                        recovered = np.load(stored, allow_pickle=False)
+                    if recovered.shape != expected.shape or recovered.dtype != expected.dtype or not np.array_equal(recovered.tobytes(), expected.tobytes()):
+                        raise ValueError(f"Archive tensor mismatch: {item['name']}")
+                    del expected, recovered
         report = {
             "output": str(args.output),
             "tensor_count": len(manifest),
