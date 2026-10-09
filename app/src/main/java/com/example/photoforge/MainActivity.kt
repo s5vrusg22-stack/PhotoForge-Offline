@@ -29,6 +29,8 @@ class MainActivity : Activity() {
     private var rotation = 0f
     private var mirrored = false
     private var brightness = 0
+    private var localStrength = 0.45f
+    private var hairTint = Color.rgb(125, 76, 49)
     private val pickImage = 100
     private val pickOverlay = 101
 
@@ -66,7 +68,13 @@ class MainActivity : Activity() {
         addButton("마스크 전체 지우기") { maskView.clearMask() }
         addButton("브러시 작게") { maskView.brushPx = (maskView.brushPx - 12f).coerceAtLeast(12f) }
         addButton("브러시 크게") { maskView.brushPx = (maskView.brushPx + 12f).coerceAtMost(160f) }
-        addButton("AI 인페인팅 실행") { executeInpaint() }
+        addButton("선택 영역만 AI로 지우기") { executeInpaint() }
+        addButton("머리카락 색상: 갈색") { hairTint = Color.rgb(125, 76, 49); applyLocalTint() }
+        addButton("머리카락 색상: 검정") { hairTint = Color.rgb(26, 25, 30); applyLocalTint() }
+        addButton("머리카락 색상: 금발") { hairTint = Color.rgb(214, 176, 92); applyLocalTint() }
+        addButton("부분 편집 강도: 약하게") { localStrength = 0.25f; status.text = "부분 편집 강도 25%" }
+        addButton("부분 편집 강도: 보통") { localStrength = 0.45f; status.text = "부분 편집 강도 45%" }
+        addButton("부분 편집 강도: 강하게") { localStrength = 0.70f; status.text = "부분 편집 강도 70%" }
         addButton("PNG 소품 이미지 겹치기 (중앙)") { pick(pickOverlay) }
         addButton("오른쪽 90° 회전") { if (original != null) { rotation += 90f; render() } }
         addButton("좌우 반전") { if (original != null) { mirrored = !mirrored; render() } }
@@ -200,6 +208,45 @@ class MainActivity : Activity() {
                 runOnUiThread { status.text = "모델 읽기 실패: ${e.message}" }
             }
         }.start()
+    }
+
+    private fun applyLocalTint() {
+        val source = current ?: return
+        if (!maskView.hasMask()) {
+            Toast.makeText(this, "머리카락 부분을 먼저 칠하세요.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val mask = maskView.exportMask()
+        val output = source.copy(Bitmap.Config.ARGB_8888, true)
+        val originalPixels = IntArray(source.width * source.height)
+        val maskPixels = IntArray(source.width * source.height)
+        source.getPixels(originalPixels, 0, source.width, 0, 0, source.width, source.height)
+        mask.getPixels(maskPixels, 0, source.width, 0, 0, source.width, source.height)
+        val tintHsv = FloatArray(3)
+        val hsv = FloatArray(3)
+        Color.colorToHSV(hairTint, tintHsv)
+        for (i in originalPixels.indices) {
+            val coverage = Color.red(maskPixels[i]) / 255f
+            if (coverage <= 0f) continue
+            val color = originalPixels[i]
+            Color.colorToHSV(color, hsv)
+            val tinted = Color.HSVToColor(Color.alpha(color), floatArrayOf(
+                tintHsv[0], (hsv[1] * 0.3f + tintHsv[1] * 0.7f).coerceIn(0f, 1f), hsv[2]
+            ))
+            val blend = (localStrength * coverage).coerceIn(0f, 1f)
+            fun mix(a: Int, b: Int): Int = (a * (1f - blend) + b * blend).toInt().coerceIn(0, 255)
+            originalPixels[i] = Color.argb(Color.alpha(color),
+                mix(Color.red(color), Color.red(tinted)),
+                mix(Color.green(color), Color.green(tinted)),
+                mix(Color.blue(color), Color.blue(tinted)))
+        }
+        output.setPixels(originalPixels, 0, source.width, 0, 0, source.width, source.height)
+        original = output
+        rotation = 0f
+        mirrored = false
+        brightness = 0
+        render()
+        status.text = "선택 영역 색상 변경 완료 · 다른 부분은 보존됨"
     }
 
     private fun executeInpaint() {
