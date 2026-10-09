@@ -1,5 +1,10 @@
 name: Download FLUX LiteRT models
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/download_flux_litert.py'
+      - '.github/workflows/flux-model-download.yml'
   workflow_dispatch:
     inputs:
       mode:
@@ -38,7 +43,7 @@ jobs:
         env:
           HF_HUB_ENABLE_HF_TRANSFER: "0"
         run: |
-          python scripts/download_flux_litert.py --mode "${{ inputs.mode }}" --revision "${{ inputs.revision }}" --output flux_models
+          python scripts/download_flux_litert.py --mode "${{ inputs.mode || 'generation' }}" --revision "${{ inputs.revision || 'main' }}" --output flux_models
       - name: Verify downloaded manifest
         run: |
           python - <<'PY'
@@ -65,7 +70,7 @@ jobs:
       - name: Upload FLUX graph files
         uses: actions/upload-artifact@v4
         with:
-          name: flux-litert-${{ inputs.mode }}
+          name: flux-litert-${{ inputs.mode || 'generation' }}
           path: flux_models/*.tflite
           retention-days: 7
           compression-level: 0
