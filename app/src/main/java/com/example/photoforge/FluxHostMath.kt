@@ -67,7 +67,8 @@ object FluxHostMath {
 
     /** Expands one [T,T] attention bias into [heads,T,T]. */
     fun repeatHeads(bias: FloatArray, tokens: Int, heads: Int): FloatArray {
-        require(tokens > 0 && heads > 0 && bias.size.toLong() == tokens.toLong() * tokens &&\n            bias.size.toLong() * heads <= Int.MAX_VALUE)
+        require(tokens > 0 && heads > 0 && bias.size.toLong() == tokens.toLong() * tokens &&
+            bias.size.toLong() * heads <= Int.MAX_VALUE)
         return FloatArray(bias.size * heads).also { output ->
             repeat(heads) { h -> bias.copyInto(output, h * bias.size) }
         }
