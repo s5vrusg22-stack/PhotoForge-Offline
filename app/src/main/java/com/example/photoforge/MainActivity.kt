@@ -95,6 +95,7 @@ class MainActivity : Activity() {
         }
         controls.addView(promptInput)
         addButton("입력한 소품 적용 (기본 도형)") { applyPromptProp() }
+        controls.addView(TextView(this).apply { text = "소품 위치: 사진에서 원하는 곳을 손가락으로 칠한 후 적용하세요."; setTextColor(Color.LTGRAY) })
         addButton("ONNX 모델 선택 (LaMa 호환)") { pickModel() }
         addButton("마스크 한 획 취소") { maskView.undo() }
         addButton("마스크 전체 지우기") { maskView.clearMask() }
@@ -164,7 +165,32 @@ class MainActivity : Activity() {
             return
         }
         val merged = source.copy(Bitmap.Config.ARGB_8888, true)
-        Canvas(merged).drawBitmap(layer, 0f, 0f, null)
+        val canvas = Canvas(merged)
+        // A painted mask is an optional placement target. Without one, use image center.
+        if (maskView.hasMask()) {
+            val placementMask = maskView.exportMask()
+            val pixels = IntArray(source.width * source.height)
+            placementMask.getPixels(pixels, 0, source.width, 0, 0, source.width, source.height)
+            var sx = 0.0
+            var sy = 0.0
+            var count = 0
+            for (i in pixels.indices) {
+                if (Color.red(pixels[i]) > 127) {
+                    sx += (i % source.width)
+                    sy += (i / source.width)
+                    count++
+                }
+            }
+            if (count > 0) {
+                val dx = (sx / count).toFloat() - source.width / 2f
+                val dy = (sy / count).toFloat() - source.height / 2f
+                canvas.drawBitmap(layer, dx, dy, null)
+            } else {
+                canvas.drawBitmap(layer, 0f, 0f, null)
+            }
+        } else {
+            canvas.drawBitmap(layer, 0f, 0f, null)
+        }
         undoSnapshot = source.copy(Bitmap.Config.ARGB_8888, false)
         original = merged
         rotation = 0f
