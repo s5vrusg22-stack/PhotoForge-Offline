@@ -14,6 +14,15 @@
 - Online Qwen is disabled by default and requires an explicitly configured external GPU service; GitHub Actions is not an inference server.
 - PixelSmile LoRA is specific to its target architecture and must not be loaded into a different model without verified compatibility.
 
+## Android LiteRT candidate (priority)
+- Repository: https://huggingface.co/litert-community/FLUX.2-klein-4B-LiteRT
+- INT8 staged 21-graph on-device image editing pipeline (256x256), Android Kotlin LiteRT GPU.
+- Reported Pixel 8a full editing ~328-369 seconds. Galaxy S26 per-graph Adreno GPU tests do NOT prove Galaxy S25 Ultra end-to-end performance.
+- Include tokenizer embedding sidecar (~778 MB) and all host assets in disk budget.
+- NPU path has failures on some text-encoder graphs; GPU preferred pending real device validation.
+- Workflow: .github/workflows/litert-klein-android-audit.yml (metadata only; no weight downloads).
+- Real S25 Ultra offline edit, peak RAM, output quality and total package size remain release gates.
+
 ## Release gates
 1. Select a real image-editing model and list **all** runtime artifacts and licenses.
 2. Confirm complete quantized package <= 10 GiB.
