@@ -21,14 +21,17 @@ object FlowMatchScheduler {
         require(latents.size == velocity.size) { "Latent/velocity tensor mismatch" }
         require(sigma.isFinite() && nextSigma.isFinite() && sigma in 0f..1f &&
                 nextSigma in 0f..1f && nextSigma < sigma) { "Invalid sigma interval" }
+        // Compute into a separate buffer: a late failure must not partially corrupt latents.
         val dt = nextSigma - sigma
+        val updatedLatents = FloatArray(latents.size)
         for (i in latents.indices) {
             val v = velocity[i]
-            require(v.isFinite() && latents[i].isFinite()) { "Non-finite latent/velocity" }
+            require(v.isFinite() && latents[i].isFinite()) { "Non-finite latent/velocity at index $i" }
             val updated = latents[i] + dt * v
             require(updated.isFinite()) { "Euler step overflow at latent index $i" }
-            latents[i] = updated
+            updatedLatents[i] = updated
         }
+        updatedLatents.copyInto(latents)
     }
 
     fun linearSchedule(steps: Int): FloatArray {
