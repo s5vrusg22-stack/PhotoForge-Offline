@@ -29,6 +29,7 @@ class FluxGraphExecutor(private val runner: (String, List<FloatArray>) -> List<F
     }
 
     fun run(host: HostTensors, onStage: (String) -> Unit = {}): FloatArray {
+        ExperimentalModelFeatures.requireQwenEnabled()
         val editing = host.referenceImageChw != null
         val mode = if (editing) "kce" else "kc"
         FluxTensorRouting.requireShape("input embeddings", host.inputsEmbeds, 1, 512, 2560)
