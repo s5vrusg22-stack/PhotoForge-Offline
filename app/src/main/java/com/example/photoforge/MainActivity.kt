@@ -63,7 +63,10 @@ class MainActivity : Activity() {
         maskView = MaskCanvas(this)
         root.addView(maskView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         val scroll = ScrollView(this)
-        val controls = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val controls = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(8, 8, 8, 24)
+        }
         fun addButton(label: String, action: () -> Unit) {
             controls.addView(Button(this).apply {
                 text = label
@@ -145,6 +148,51 @@ class MainActivity : Activity() {
                 status.text = "FLUX 생성용 그래프 12개 확인됨 · GPU 추론은 별도 검증 필요"
             } catch (e: Exception) { status.text = "FLUX 파일 검사 실패: ${e.message}" }
         }
+        addButton("기기 메모리·발열 상태 확인") {
+            try {
+                val snapshot = DevicePerformanceMonitor.sample(this)
+                status.text = snapshot.summary() + " · GPU 사용률은 측정되지 않음"
+            } catch (e: Exception) {
+                status.text = "기기 상태 조회 실패: ${e.message}"
+            }
+        }
+        addButton("FLUX SHA-256 무결성 검사") {
+            val graph = java.io.File(filesDir, "flux_models/kc_prep.tflite")
+            if (!graph.isFile) {
+                status.text = "먼저 FLUX 모델을 가져오세요."
+            } else {
+                val field = android.widget.EditText(this).apply {
+                    hint = "신뢰할 수 있는 원본 SHA-256 (64자리)"
+                    inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                        android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                    setSingleLine(true)
+                }
+                android.app.AlertDialog.Builder(this)
+                    .setTitle("kc_prep.tflite SHA-256 검사")
+                    .setMessage("모델 배포처에서 별도로 확인한 SHA-256 값을 입력하세요.")
+                    .setView(field)
+                    .setNegativeButton("취소", null)
+                    .setPositiveButton("검사") { _, _ ->
+                        val expected = field.text.toString().trim()
+                        if (!Regex("[0-9a-fA-F]{64}").matches(expected)) {
+                            status.text = "SHA-256은 64자리 16진수여야 합니다."
+                        } else {
+                            status.text = "SHA-256 계산 중... 대용량 파일은 시간이 걸립니다."
+                            Thread {
+                                try {
+                                    val ok = FluxSha256.verify(graph, expected)
+                                    runOnUiThread {
+                                        status.text = if (ok) "SHA-256 일치 · kc_prep.tflite 무결성 확인"
+                                        else "SHA-256 불일치 · 모델 파일을 사용하지 마세요."
+                                    }
+                                } catch (e: Exception) {
+                                    runOnUiThread { status.text = "SHA-256 검사 실패: ${e.message}" }
+                                }
+                            }.start()
+                        }
+                    }.show()
+            }
+        }
         addButton("설치된 FLUX 그래프 GPU 컴파일 검사") {
             val graph = java.io.File(filesDir, "flux_models/kc_prep.tflite")
             if (!graph.isFile || graph.length() == 0L) {
@@ -197,7 +245,7 @@ class MainActivity : Activity() {
             setTextColor(Color.LTGRAY)
         })
         scroll.addView(controls)
-        root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 0.75f))
+        root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.35f))
         setContentView(root)
         prepareBundledModel()
     }
@@ -392,13 +440,39 @@ class MainActivity : Activity() {
                 }
                 val missing = names.filterNot { available.containsKey(it) }
                 require(missing.isEmpty()) { "폴더에 없는 모델: ${missing.joinToString()}" }
-                directory.mkdirs()
+                // Check the actual replacement bytes, including corrupt or truncated existing files.
+                val sourceSizes = mutableMapOf<String, Long>()
+                var requiredBytes = 0L
+                for (name in names) {
+                    val id = available.getValue(name)
+                    val uri = android.provider.DocumentsContract.buildDocumentUriUsingTree(treeUri, id)
+                    var size: Long? = null
+                    contentResolver.query(uri, arrayOf(
+                        android.provider.DocumentsContract.Document.COLUMN_SIZE
+                    ), null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst() && !cursor.isNull(0)) size = cursor.getLong(0)
+                    }
+                    val expected = size ?: error("모델 크기 조회 실패: $name")
+                    require(expected > 0L) { "모델 크기가 잘못됨: $name" }
+                    sourceSizes[name] = expected
+                    val existing = java.io.File(directory, name)
+                    if (!existing.isFile || existing.length() != expected) {
+                        requiredBytes = Math.addExact(requiredBytes, expected)
+                    }
+                }
+                val availableBytes = android.os.StatFs(filesDir.absolutePath).availableBytes
+                val reserve = 512L * 1024 * 1024
+                require(availableBytes > reserve && requiredBytes <= availableBytes - reserve) {
+                    "저장 공간 부족: 필요 ${requiredBytes / 1048576} MiB, 여유 ${availableBytes / 1048576} MiB (512 MiB 예약)"
+                }
+                require(directory.isDirectory || directory.mkdirs()) { "모델 저장 폴더 생성 실패" }
                 for ((index, name) in names.withIndex()) {
                     val id = available.getValue(name)
                     val uri = android.provider.DocumentsContract.buildDocumentUriUsingTree(treeUri, id)
                     val target = java.io.File(directory, name)
                     val partial = java.io.File(directory, "$name.partial")
-                    if (target.isFile && target.length() > 0L) continue
+                    val expectedSize = sourceSizes.getValue(name)
+                    if (target.isFile && target.length() == expectedSize) continue
                     runOnUiThread { status.text = "FLUX 모델 복사 중 ${index + 1}/${names.size}: $name" }
                     try {
                         contentResolver.openInputStream(uri).use { input ->
@@ -407,8 +481,20 @@ class MainActivity : Activity() {
                                 input.copyTo(output, 1024 * 1024)
                             }
                         }
-                        require(partial.length() > 0L) { "빈 모델: $name" }
-                        require(partial.renameTo(target)) { "모델 저장 실패: $name" }
+                        require(partial.length() == expectedSize) { "모델 복사 크기 불일치: $name" }
+                        // Never delete the old model before the replacement is fully copied.
+                        if (target.exists()) {
+                            val backup = java.io.File(directory, "$name.backup")
+                            require(!backup.exists() || backup.delete()) { "백업 파일 정리 실패: $name" }
+                            require(target.renameTo(backup)) { "기존 모델 백업 실패: $name" }
+                            if (!partial.renameTo(target)) {
+                                require(backup.renameTo(target)) { "기존 모델 복원 실패: $name" }
+                                error("모델 저장 실패: $name")
+                            }
+                            backup.delete()
+                        } else {
+                            require(partial.renameTo(target)) { "모델 저장 실패: $name" }
+                        }
                     } finally {
                         partial.delete()
                     }
