@@ -178,7 +178,10 @@ class MainActivity : Activity() {
 
 
         controls.addView(TextView(this).apply { text = "소품 위치: 사진에서 원하는 곳을 손가락으로 칠한 후 적용하세요."; setTextColor(Color.LTGRAY) })
+        controls.addView(TextView(this).apply { text = "고급 기능 · LaMa"; textSize = 18f; setTextColor(Color.WHITE); setPadding(0, 24, 0, 6) })
         addButton("고급 기능 · LaMa 모델 선택") { pickModel() }
+        controls.addView(TextView(this).apply { text = "모델 및 성능"; textSize = 19f; setTextColor(Color.WHITE); setPadding(0, 24, 0, 6) })
+        controls.addView(TextView(this).apply { text = "FLUX Editing 설치 · 무결성 · GPU · 메모리/발열 진단"; setTextColor(Color.LTGRAY) })
         addButton("FLUX Editing 모델 가져오기 · 13개 그래프") {
             startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
