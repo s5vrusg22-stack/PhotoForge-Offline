@@ -43,6 +43,8 @@ class MainActivity : Activity() {
     private val pickFluxDirectory = 105
     private var propScale = 1.0f
     private var propRotation = 0f
+    private var propOffsetX = 0f
+    private var propOffsetY = 0f
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -168,6 +170,12 @@ class MainActivity : Activity() {
         addButton("소품 크기 +") { propScale = (propScale + 0.1f).coerceAtMost(2.5f); status.text = "소품 크기 " + (propScale * 100).toInt() + "%" }
         addButton("소품 왼쪽 회전") { propRotation -= 15f; status.text = "소품 회전 " + propRotation.toInt() + "°" }
         addButton("소품 오른쪽 회전") { propRotation += 15f; status.text = "소품 회전 " + propRotation.toInt() + "°" }
+        addButton("소품 왼쪽 이동") { propOffsetX -= 24f; status.text = "소품 X " + propOffsetX.toInt() }
+        addButton("소품 오른쪽 이동") { propOffsetX += 24f; status.text = "소품 X " + propOffsetX.toInt() }
+        addButton("소품 위로 이동") { propOffsetY -= 24f; status.text = "소품 Y " + propOffsetY.toInt() }
+        addButton("소품 아래로 이동") { propOffsetY += 24f; status.text = "소품 Y " + propOffsetY.toInt() }
+        addButton("소품 조정 초기화") { propScale = 1f; propRotation = 0f; propOffsetX = 0f; propOffsetY = 0f; status.text = "소품 조정 초기화됨" }
+
 
         controls.addView(TextView(this).apply { text = "소품 위치: 사진에서 원하는 곳을 손가락으로 칠한 후 적용하세요."; setTextColor(Color.LTGRAY) })
         addButton("고급 기능 · LaMa 모델 선택") { pickModel() }
