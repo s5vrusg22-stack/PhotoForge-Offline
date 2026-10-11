@@ -146,6 +146,11 @@ class MainActivity : Activity() {
         }
         controls.addView(promptInput)
         addButton("입력한 소품 적용 (기본 도형)") { applyPromptProp() }
+        addButton("소품 크기 -") { propScale = (propScale - 0.1f).coerceAtLeast(0.3f); status.text = "소품 크기 " + (propScale * 100).toInt() + "%" }
+        addButton("소품 크기 +") { propScale = (propScale + 0.1f).coerceAtMost(2.5f); status.text = "소품 크기 " + (propScale * 100).toInt() + "%" }
+        addButton("소품 왼쪽 회전") { propRotation -= 15f; status.text = "소품 회전 " + propRotation.toInt() + "°" }
+        addButton("소품 오른쪽 회전") { propRotation += 15f; status.text = "소품 회전 " + propRotation.toInt() + "°" }
+
         controls.addView(TextView(this).apply { text = "소품 위치: 사진에서 원하는 곳을 손가락으로 칠한 후 적용하세요."; setTextColor(Color.LTGRAY) })
         addButton("고급 기능 · LaMa 모델 선택") { pickModel() }
         addButton("FLUX Editing 모델 가져오기 · 13개 그래프") {
