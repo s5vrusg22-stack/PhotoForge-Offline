@@ -342,6 +342,14 @@ class MainActivity : Activity() {
         }
         val merged = source.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(merged)
+        val transformedLayer = Bitmap.createBitmap(
+            layer, 0, 0, layer.width, layer.height,
+            Matrix().apply {
+                postScale(propScale, propScale, layer.width / 2f, layer.height / 2f)
+                postRotate(propRotation, layer.width / 2f, layer.height / 2f)
+                postTranslate(propOffsetX, propOffsetY)
+            }, true
+        )
         // A painted mask is an optional placement target. Without one, use image center.
         if (maskView.hasMask()) {
             val placementMask = maskView.exportMask()
@@ -360,12 +368,12 @@ class MainActivity : Activity() {
             if (count > 0) {
                 val dx = (sx / count).toFloat() - source.width / 2f
                 val dy = (sy / count).toFloat() - source.height / 2f
-                canvas.drawBitmap(layer, dx, dy, null)
+                canvas.drawBitmap(transformedLayer, dx, dy, null)
             } else {
-                canvas.drawBitmap(layer, 0f, 0f, null)
+                canvas.drawBitmap(transformedLayer, 0f, 0f, null)
             }
         } else {
-            canvas.drawBitmap(layer, 0f, 0f, null)
+            canvas.drawBitmap(transformedLayer, 0f, 0f, null)
         }
         undoSnapshot = source.copy(Bitmap.Config.ARGB_8888, false)
         original = merged
