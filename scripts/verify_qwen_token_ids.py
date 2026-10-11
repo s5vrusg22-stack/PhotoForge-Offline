@@ -29,6 +29,11 @@ def main():
     print(json.dumps({"prompt": args.prompt, "ids": ids, "token_count": len(ids),
                       "fixture_path": fixture, "fixture_bytes": len(sample.encode("utf-8"))},
                      ensure_ascii=False))
-    print("NOTE: fixture was downloaded but its schema must be parsed before asserting parity.")
+    # Emit a machine-readable conformance vector consumed by Kotlin tests.
+    vector = {"prompt": args.prompt, "ids": ids}
+    with open("qwen_token_vector.json", "w", encoding="utf-8") as out:
+        json.dump(vector, out, ensure_ascii=False)
+    print("WROTE qwen_token_vector.json")
+    print("NOTE: upstream fixture schema is retained for independent parity checks.")
 if __name__ == "__main__":
     main()
