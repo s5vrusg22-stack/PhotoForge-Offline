@@ -12,7 +12,8 @@ class QwenTokenizerAssets(private val root: File) {
         val vocab: File,
         val merges: File,
         val special: File,
-        val embeddings: File
+        val embeddings: File,
+        val fixture: File
     )
     fun requireComplete(): Assets {
         val tokenizer = File(root, "tokenizer").canonicalFile
@@ -26,7 +27,8 @@ class QwenTokenizerAssets(private val root: File) {
             required("qwen_vocab.txt"),
             required("qwen_merges.txt"),
             required("qwen_special.txt"),
-            required("qwen_embed_fp16.bin")
+            required("qwen_embed_fp16.bin"),
+            required("tokenizer_fixture.txt")
         )
     }
 }
