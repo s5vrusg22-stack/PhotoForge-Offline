@@ -194,7 +194,7 @@ class MainActivity : Activity() {
             }
         }
         addButton("설치된 FLUX 그래프 GPU 컴파일 검사") {
-            val graph = java.io.File(filesDir, "flux_models/kc_prep.tflite")
+            val graph = java.io.File(filesDir, "flux_models/kce_prep.tflite")
             if (!graph.isFile || graph.length() == 0L) {
                 status.text = "FLUX 모델 폴더를 먼저 가져오세요."
             } else {
