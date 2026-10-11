@@ -50,7 +50,7 @@ jobs:
           import hashlib,json,pathlib
           root=pathlib.Path('flux_models')
           manifest=json.loads((root/'flux_manifest.json').read_text())
-          for item in manifest['graphs']:
+          for item in manifest['graphs'] + manifest['tokenizer']:
               file=root/item['file']
               assert file.stat().st_size == item['size'],file
               h=hashlib.sha256()
@@ -58,7 +58,7 @@ jobs:
                   for chunk in iter(lambda:stream.read(8*1024*1024),b''):
                       h.update(chunk)
               assert h.hexdigest()==item['sha256'],file
-          print('VERIFIED',len(manifest['graphs']),'FLUX graphs')
+          print('VERIFIED',len(manifest['graphs']),'FLUX graphs and',len(manifest['tokenizer']),'tokenizer assets')
           PY
       - name: Upload download manifest
         if: always()
@@ -72,6 +72,15 @@ jobs:
         with:
           name: flux-litert-${{ inputs.mode || 'generation' }}
           path: flux_models/*.tflite
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload prompt tokenizer and embedding assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: flux-tokenizer-assets
+          path: flux_models/tokenizer/
           retention-days: 7
           compression-level: 0
           if-no-files-found: error
