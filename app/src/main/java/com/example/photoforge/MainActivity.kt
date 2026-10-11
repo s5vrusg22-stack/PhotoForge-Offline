@@ -46,17 +46,17 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(18, 30, 18, 16)
+            setPadding(24, 34, 24, 18)
             setBackgroundColor(Color.rgb(19, 23, 32))
         }
         val title = TextView(this).apply {
             text = "PhotoForge Offline"
-            textSize = 25f
+            textSize = 28f
             setTextColor(Color.WHITE)
         }
         root.addView(title)
         status = TextView(this).apply {
-            text = "사진을 열어 편집하세요. 인터넷 연결이 필요하지 않습니다."
+            text = "사진을 열어 편집을 시작하세요 · FLUX Editing 오프라인"
             setTextColor(Color.LTGRAY)
         }
         root.addView(status)
