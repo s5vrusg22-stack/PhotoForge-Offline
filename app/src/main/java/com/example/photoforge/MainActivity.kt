@@ -45,6 +45,9 @@ class MainActivity : Activity() {
     private var propRotation = 0f
     private var propOffsetX = 0f
     private var propOffsetY = 0f
+    private lateinit var expressionPanel: LinearLayout
+    private lateinit var propPanel: LinearLayout
+    private lateinit var modelPanel: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
