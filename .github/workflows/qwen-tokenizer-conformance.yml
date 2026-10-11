@@ -1,0 +1,33 @@
+name: Qwen tokenizer conformance
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'app/src/main/java/com/example/photoforge/Qwen**'
+      - 'app/src/test/java/com/example/photoforge/Qwen**'
+      - 'scripts/verify_qwen_token_ids.py'
+      - '.github/workflows/qwen-tokenizer-conformance.yml'
+jobs:
+  upstream-token-ids:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install --disable-pip-version-check transformers huggingface_hub
+      - name: Generate official English Qwen token IDs
+        run: python scripts/verify_qwen_token_ids.py --prompt "Turn the apple into a green apple"
+      - name: Preserve English vector
+        run: mv qwen_token_vector.json qwen_token_vector_en.json
+      - name: Generate official Korean Qwen token IDs
+        run: python scripts/verify_qwen_token_ids.py --prompt "이 사람을 자연스럽게 웃는 표정으로 바꿔줘"
+      - name: Preserve Korean vector
+        run: mv qwen_token_vector.json qwen_token_vector_ko.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qwen-official-token-vectors
+          path: |
+            qwen_token_vector_en.json
+            qwen_token_vector_ko.json
+          retention-days: 7
