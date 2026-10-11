@@ -21,6 +21,33 @@ class FluxGraphExecutor(private val runner: (String, List<FloatArray>) -> List<F
         val decodeLatents: (FloatArray) -> FloatArray = { error("Latent unpack and VAE normalization unavailable") }
     )
 
+    /**
+     * Construct the exact VAE latent adapters from checkpoint channel statistics.
+     * No default coefficients are substituted; all 32 values must be supplied.
+     */
+    companion object {
+        fun withVaeChannelStats(
+            base: HostTensors,
+            mean: FloatArray,
+            std: FloatArray
+        ): HostTensors {
+            require(mean.size == FluxVaePacking.CHANNELS &&
+                std.size == FluxVaePacking.CHANNELS) {
+                "FLUX VAE needs 32 channel statistics"
+            }
+            val fixedMean = mean.copyOf()
+            val fixedStd = std.copyOf()
+            require(fixedMean.all { it.isFinite() } &&
+                fixedStd.all { it.isFinite() && it > 0f }) {
+                "Invalid VAE channel statistics"
+            }
+            return base.copy(
+                encodeReference = { FluxVaePacking.packWithChannelStats(it, fixedMean, fixedStd) },
+                decodeLatents = { FluxVaePacking.unpackWithChannelStats(it, fixedMean, fixedStd) }
+            )
+        }
+    }
+
     private fun invoke(name: String, inputs: List<FloatArray>, outputs: Int): List<FloatArray> {
         val result = runner("$name.tflite", inputs)
         check(result.size == outputs) { "$name returned ${result.size} outputs, expected $outputs" }
