@@ -141,11 +141,11 @@ class MainActivity : Activity() {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
             }, pickFluxDirectory)
         }
-        addButton("FLUX 모델 12개 설치 확인") {
+        addButton("FLUX 편집 모델 13개 설치 확인") {
             val directory = java.io.File(filesDir, "flux_models")
             try {
-                FluxInferenceEntry.validateGraphFiles(directory, false)
-                status.text = "FLUX 생성용 그래프 12개 확인됨 · GPU 추론은 별도 검증 필요"
+                FluxInferenceEntry.validateGraphFiles(directory, true)
+                status.text = "FLUX 편집용 그래프 13개 확인됨 · GPU 추론은 별도 검증 필요"
             } catch (e: Exception) { status.text = "FLUX 파일 검사 실패: ${e.message}" }
         }
         addButton("기기 메모리·발열 상태 확인") {
@@ -157,7 +157,7 @@ class MainActivity : Activity() {
             }
         }
         addButton("FLUX SHA-256 무결성 검사") {
-            val graph = java.io.File(filesDir, "flux_models/kc_prep.tflite")
+            val graph = java.io.File(filesDir, "flux_models/kce_prep.tflite")
             if (!graph.isFile) {
                 status.text = "먼저 FLUX 모델을 가져오세요."
             } else {
@@ -168,7 +168,7 @@ class MainActivity : Activity() {
                     setSingleLine(true)
                 }
                 android.app.AlertDialog.Builder(this)
-                    .setTitle("kc_prep.tflite SHA-256 검사")
+                    .setTitle("kce_prep.tflite SHA-256 검사")
                     .setMessage("모델 배포처에서 별도로 확인한 SHA-256 값을 입력하세요.")
                     .setView(field)
                     .setNegativeButton("취소", null)
@@ -182,7 +182,7 @@ class MainActivity : Activity() {
                                 try {
                                     val ok = FluxSha256.verify(graph, expected)
                                     runOnUiThread {
-                                        status.text = if (ok) "SHA-256 일치 · kc_prep.tflite 무결성 확인"
+                                        status.text = if (ok) "SHA-256 일치 · kce_prep.tflite 무결성 확인"
                                         else "SHA-256 불일치 · 모델 파일을 사용하지 마세요."
                                     }
                                 } catch (e: Exception) {
@@ -198,19 +198,19 @@ class MainActivity : Activity() {
             if (!graph.isFile || graph.length() == 0L) {
                 status.text = "FLUX 모델 폴더를 먼저 가져오세요."
             } else {
-                status.text = "FLUX kc_prep GPU 컴파일 검사 중..."
+                status.text = "FLUX kce_prep GPU 컴파일 검사 중..."
                 Thread {
                     val result = try {
                         LiteRtGraphProbe.compileGpu(this, graph)
                     } catch (e: Exception) {
-                        LiteRtGraphProbe.Result("kc_prep", false, 0, 0, 0, e.message)
+                        LiteRtGraphProbe.Result("kce_prep", false, 0, 0, 0, e.message)
                     } catch (e: OutOfMemoryError) {
-                        LiteRtGraphProbe.Result("kc_prep", false, 0, 0, 0, "GPU 메모리 부족")
+                        LiteRtGraphProbe.Result("kce_prep", false, 0, 0, 0, "GPU 메모리 부족")
                     }
                     runOnUiThread {
                         status.text = if (result.success)
-                            "FLUX kc_prep GPU 그래프 컴파일 성공 (${result.milliseconds}ms) · 추론 실행은 별도"
-                        else "FLUX kc_prep GPU 컴파일 실패: ${result.error}"
+                            "FLUX kce_prep GPU 그래프 컴파일 성공 (${result.milliseconds}ms) · 추론 실행은 별도"
+                        else "FLUX kce_prep GPU 컴파일 실패: ${result.error}"
                     }
                 }.start()
             }
@@ -432,10 +432,11 @@ class MainActivity : Activity() {
                 }
                 val names = buildList {
                     for (i in 0..2) add("ke_enc$i.tflite")
-                    add("kc_prep.tflite")
-                    for (i in 0..1) add("kc_double$i.tflite")
-                    for (i in 0..3) add("kc_single$i.tflite")
-                    add("kc_final.tflite")
+                    add("kce_prep.tflite")
+                    for (i in 0..1) add("kce_double$i.tflite")
+                    for (i in 0..3) add("kce_single$i.tflite")
+                    add("kce_final.tflite")
+                    add("kv_vae_enc.tflite")
                     add("kv_vae.tflite")
                 }
                 val missing = names.filterNot { available.containsKey(it) }
@@ -499,9 +500,9 @@ class MainActivity : Activity() {
                         partial.delete()
                     }
                 }
-                FluxInferenceEntry.validateGraphFiles(directory, false)
+                FluxInferenceEntry.validateGraphFiles(directory, true)
                 runOnUiThread {
-                    status.text = "FLUX 모델 12개 설치 완료 · 실제 GPU 추론은 아직 검증되지 않음"
+                    status.text = "FLUX 편집 모델 13개 설치 완료 · 실제 GPU 추론은 아직 검증되지 않음"
                 }
             } catch (e: Exception) {
                 runOnUiThread { status.text = "FLUX 모델 설치 실패: ${e.message}" }
