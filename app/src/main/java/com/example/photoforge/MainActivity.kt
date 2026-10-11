@@ -96,6 +96,9 @@ class MainActivity : Activity() {
             })
         }
         addButton("사진 열기") { pick(pickImage) }
+        expressionPanel = panel()
+        propPanel = panel()
+        modelPanel = panel()
         val modeBar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         fun modeButton(label: String, mode: String) {
             modeBar.addView(Button(this).apply {
@@ -113,6 +116,7 @@ class MainActivity : Activity() {
         modeButton("의상", "옷 변경")
         modeButton("자세", "자세 변경")
         controls.addView(modeBar)
+        addButton("모델 · 성능 관리") { showPanel(modelPanel); status.text = "FLUX Editing 모델 및 기기 진단" }
 
         controls.addView(TextView(this).apply {
             text = "1. 표정 변경 · 최우선"
