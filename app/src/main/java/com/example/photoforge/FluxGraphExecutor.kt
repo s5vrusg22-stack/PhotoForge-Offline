@@ -61,6 +61,13 @@ class FluxGraphExecutor(private val runner: (String, List<FloatArray>) -> List<F
         // Fail-fast on missing adapters without executing a fake denoising step.
         // Actual adapter output is checked at the point where real VAE data exists.
         val mode = if (editing) "kce" else "kc"
+        // Editing must have an explicit, verified VAE adapter. A graph-only
+        // installation cannot silently run with identity normalization.
+        if (editing) {
+            require(host.referenceImageChw!!.size == 3 * 256 * 256) {
+                "Reference image must be 256x256 RGB NCHW"
+            }
+        }
         FluxTensorRouting.requireShape("input embeddings", host.inputsEmbeds, 1, 512, 2560)
         FluxTensorRouting.requireShape("noise", host.initialNoise, 1, 256, 128)
         require(host.timeEmbeddings.size == 4 && host.sigmas.size == 5) {
