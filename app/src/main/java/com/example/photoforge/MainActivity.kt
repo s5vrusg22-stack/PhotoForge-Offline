@@ -41,6 +41,8 @@ class MainActivity : Activity() {
     private val pickOverlay = 101
     private val pickLiteRtGraph = 104
     private val pickFluxDirectory = 105
+    private var propScale = 1.0f
+    private var propRotation = 0f
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
