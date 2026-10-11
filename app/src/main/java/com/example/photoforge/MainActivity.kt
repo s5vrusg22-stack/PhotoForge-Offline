@@ -135,8 +135,8 @@ class MainActivity : Activity() {
         controls.addView(promptInput)
         addButton("입력한 소품 적용 (기본 도형)") { applyPromptProp() }
         controls.addView(TextView(this).apply { text = "소품 위치: 사진에서 원하는 곳을 손가락으로 칠한 후 적용하세요."; setTextColor(Color.LTGRAY) })
-        addButton("ONNX 모델 선택 (LaMa 호환)") { pickModel() }
-        addButton("FLUX 모델 폴더 가져오기 (6GB 이상 공간 필요)") {
+        addButton("고급 기능 · LaMa 모델 선택") { pickModel() }
+        addButton("FLUX Editing 모델 가져오기 · 13개 그래프") {
             startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
             }, pickFluxDirectory)
@@ -225,7 +225,7 @@ class MainActivity : Activity() {
         addButton("마스크 전체 지우기") { maskView.clearMask() }
         addButton("브러시 작게") { maskView.brushPx = (maskView.brushPx - 12f).coerceAtLeast(12f) }
         addButton("브러시 크게") { maskView.brushPx = (maskView.brushPx + 12f).coerceAtMost(160f) }
-        addButton("선택 영역만 AI로 지우기") { executeInpaint() }
+        addButton("LaMa · 선택 영역 지우기") { executeInpaint() }
         addButton("표정 변경 모드") { editMode = "표정 변경"; updateExpressionStatus() }
         addButton("소품 추가 모드") { editMode = "소품 추가"; status.text = "소품 PNG를 선택해 합성하세요." }
         addButton("옷 변경 모드") { editMode = "옷 변경"; status.text = "옷 부분을 마스크로 지정하세요. AI 의상 생성 모델은 아직 연결되지 않았습니다." }
