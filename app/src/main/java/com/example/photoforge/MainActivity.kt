@@ -74,6 +74,11 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(8, 8, 8, 24)
         }
+        fun panel(): LinearLayout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+        fun showPanel(target: LinearLayout) {
+            listOf(expressionPanel, propPanel, modelPanel).forEach { it.visibility = View.GONE }
+            target.visibility = View.VISIBLE
+        }
         fun addButton(label: String, action: () -> Unit) {
             controls.addView(Button(this).apply {
                 text = label
