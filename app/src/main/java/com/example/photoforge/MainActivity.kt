@@ -86,6 +86,24 @@ class MainActivity : Activity() {
             })
         }
         addButton("사진 열기") { pick(pickImage) }
+        val modeBar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        fun modeButton(label: String, mode: String) {
+            modeBar.addView(Button(this).apply {
+                text = label
+                isAllCaps = false
+                textSize = 12f
+                setOnClickListener {
+                    editMode = mode
+                    status.text = mode + " 메뉴 선택됨"
+                }
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        }
+        modeButton("표정", "표정 변경")
+        modeButton("소품", "소품 추가")
+        modeButton("의상", "옷 변경")
+        modeButton("자세", "자세 변경")
+        controls.addView(modeBar)
+
         controls.addView(TextView(this).apply {
             text = "1. 표정 변경 · 최우선"
             textSize = 19f
