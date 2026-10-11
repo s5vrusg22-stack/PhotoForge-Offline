@@ -334,7 +334,14 @@ class MainActivity : Activity() {
             }
         }
         val referenceInfo = if (expressionReference != null) " · 예시 사진 준비됨" else ""
-        status.text = "표정 '$expression' 선택됨$referenceInfo. 실제 얼굴 표정 생성 AI는 아직 연결되지 않아 사진을 변경하지 않았습니다."
+        val modelRoot = java.io.File(filesDir, "flux_models")
+        val required = GraphPipelineContract.required(GraphPipelineContract.Mode.EDIT)
+        val missing = required.filterNot { java.io.File(modelRoot, it).isFile }
+        status.text = if (missing.isNotEmpty()) {
+            "FLUX 편집 실행 준비 부족: ${missing.size}개 필수 구성요소 없음 (${missing.take(3).joinToString(", ")}) · 사진은 변경하지 않음"
+        } else {
+            "FLUX 파일 확인됨$referenceInfo · 토큰화·로터리·VAE 정규화와 실기기 추론 검증 전이므로 사진은 변경하지 않음"
+        }
     }
 
     private fun applyPromptProp() {
