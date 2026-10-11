@@ -12,7 +12,8 @@ MODEL_ID = "litert-community/FLUX.2-klein-4B-LiteRT"
 ENCODER = [f"ke_enc{i}.tflite" for i in range(3)]
 VAE = ["kv_vae.tflite"]
 TOKENIZER = ["tokenizer/qwen_vocab.txt", "tokenizer/qwen_merges.txt",
-             "tokenizer/qwen_special.txt", "tokenizer/qwen_embed_fp16.bin"]
+             "tokenizer/qwen_special.txt", "tokenizer/qwen_embed_fp16.bin",
+             "tokenizer/tokenizer_fixture.txt"]
 def required(mode):
     prefix = "kce" if mode == "editing" else "kc"
     graphs = [f"{prefix}_prep.tflite"]
