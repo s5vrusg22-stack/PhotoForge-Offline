@@ -70,7 +70,17 @@ class MainActivity : Activity() {
         fun addButton(label: String, action: () -> Unit) {
             controls.addView(Button(this).apply {
                 text = label
+                textSize = 14f
+                isAllCaps = false
+                minHeight = 50
+                setPadding(16, 8, 16, 8)
                 setOnClickListener { action() }
+            }, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = 5
+                bottomMargin = 5
             })
         }
         addButton("사진 열기") { pick(pickImage) }
