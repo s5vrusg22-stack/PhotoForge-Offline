@@ -17,7 +17,11 @@ class LiteRtSequentialRunner(private val root: File) : AutoCloseable {
         val file = File(root, name).canonicalFile
         require(file.parentFile == root.canonicalFile && file.isFile) { "Missing model graph: $name" }
         val options = CompiledModel.Options(Accelerator.GPU)
-        val model = CompiledModel.create(file.absolutePath, options)
+        val model = try {
+            CompiledModel.create(file.absolutePath, options)
+        } catch (e: Throwable) {
+            throw IllegalStateException("GPU could not compile $name; device memory/driver or model compatibility may be insufficient", e)
+        }
         try {
             val inputs = model.createInputBuffers()
             val outputs = model.createOutputBuffers()
@@ -35,7 +39,11 @@ class LiteRtSequentialRunner(private val root: File) : AutoCloseable {
                         throw IllegalArgumentException("$name input[$i] rejected ${tensor.size} FP32 elements; verify exported tensor signature", e)
                     }
                 }
-                model.run(inputs, outputs)
+                try {
+                    model.run(inputs, outputs)
+                } catch (e: Throwable) {
+                    throw IllegalStateException("GPU execution failed in $name; buffers will be released", e)
+                }
                 return outputs.mapIndexed { i, buffer ->
                     val values = buffer.readFloat()
                     require(values.isNotEmpty() && values.all { it.isFinite() }) {
