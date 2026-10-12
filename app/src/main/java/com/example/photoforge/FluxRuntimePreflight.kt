@@ -14,8 +14,7 @@ object FluxRuntimePreflight {
             val f = File(modelRoot, name)
             if (!f.isFile || f.length() <= 0L) problems += "missing graph: $name"
         }
-        if (editing) {
-            try {
+        if (editing) {\n            val timestepBin = File(modelRoot, FluxProjectedTimestepConfig.FILE_NAME)\n            val timestepMeta = File(modelRoot, FluxProjectedTimestepConfig.META_NAME)\n            if (!timestepBin.isFile || !timestepMeta.isFile) {\n                problems += "missing verified FLUX timestep projection assets"\n            }\n            try {
                 val assets = QwenTokenizerAssets(modelRoot).requireComplete()
                 if (assets.embeddings.length() !=
                     FluxEmbeddingLookup.VOCAB_SIZE.toLong() * FluxEmbeddingLookup.ROW_BYTES) {
