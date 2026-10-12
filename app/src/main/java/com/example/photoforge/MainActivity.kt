@@ -17,6 +17,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import android.view.View
 import android.view.ViewGroup
 import java.io.ByteArrayOutputStream
 
@@ -41,36 +42,83 @@ class MainActivity : Activity() {
     private val pickOverlay = 101
     private val pickLiteRtGraph = 104
     private val pickFluxDirectory = 105
+    private var propScale = 1.0f
+    private var propRotation = 0f
+    private var propOffsetX = 0f
+    private var propOffsetY = 0f
+    private lateinit var expressionPanel: LinearLayout
+    private lateinit var propPanel: LinearLayout
+    private lateinit var modelPanel: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(18, 30, 18, 16)
+            setPadding(24, 34, 24, 18)
             setBackgroundColor(Color.rgb(19, 23, 32))
         }
         val title = TextView(this).apply {
             text = "PhotoForge Offline"
-            textSize = 25f
+            textSize = 28f
             setTextColor(Color.WHITE)
         }
         root.addView(title)
         status = TextView(this).apply {
-            text = "사진을 열어 편집하세요. 인터넷 연결이 필요하지 않습니다."
+            text = "사진을 열어 편집을 시작하세요 · FLUX Editing 오프라인"
             setTextColor(Color.LTGRAY)
         }
         root.addView(status)
         maskView = MaskCanvas(this)
         root.addView(maskView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         val scroll = ScrollView(this)
-        val controls = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val controls = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(8, 8, 8, 24)
+        }
+        fun panel(): LinearLayout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+        fun showPanel(target: LinearLayout) {
+            listOf(expressionPanel, propPanel, modelPanel).forEach { it.visibility = View.GONE }
+            target.visibility = View.VISIBLE
+        }
         fun addButton(label: String, action: () -> Unit) {
             controls.addView(Button(this).apply {
                 text = label
+                textSize = 14f
+                isAllCaps = false
+                minHeight = 50
+                setPadding(16, 8, 16, 8)
                 setOnClickListener { action() }
+            }, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = 5
+                bottomMargin = 5
             })
         }
         addButton("사진 열기") { pick(pickImage) }
+        expressionPanel = panel()
+        propPanel = panel()
+        modelPanel = panel()
+        val modeBar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        fun modeButton(label: String, mode: String) {
+            modeBar.addView(Button(this).apply {
+                text = label
+                isAllCaps = false
+                textSize = 12f
+                setOnClickListener {
+                    editMode = mode
+                    status.text = mode + " 메뉴 선택됨"
+                }
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        }
+        modeButton("표정", "표정 변경")
+        modeButton("소품", "소품 추가")
+        modeButton("의상", "옷 변경")
+        modeButton("자세", "자세 변경")
+        controls.addView(modeBar)
+        addButton("모델 · 성능 관리") { showPanel(modelPanel); status.text = "FLUX Editing 모델 및 기기 진단" }
+
         controls.addView(TextView(this).apply {
             text = "1. 표정 변경 · 최우선"
             textSize = 19f
@@ -131,38 +179,97 @@ class MainActivity : Activity() {
         }
         controls.addView(promptInput)
         addButton("입력한 소품 적용 (기본 도형)") { applyPromptProp() }
+        addButton("소품 크기 -") { propScale = (propScale - 0.1f).coerceAtLeast(0.3f); status.text = "소품 크기 " + (propScale * 100).toInt() + "%" }
+        addButton("소품 크기 +") { propScale = (propScale + 0.1f).coerceAtMost(2.5f); status.text = "소품 크기 " + (propScale * 100).toInt() + "%" }
+        addButton("소품 왼쪽 회전") { propRotation -= 15f; status.text = "소품 회전 " + propRotation.toInt() + "°" }
+        addButton("소품 오른쪽 회전") { propRotation += 15f; status.text = "소품 회전 " + propRotation.toInt() + "°" }
+        addButton("소품 왼쪽 이동") { propOffsetX -= 24f; status.text = "소품 X " + propOffsetX.toInt() }
+        addButton("소품 오른쪽 이동") { propOffsetX += 24f; status.text = "소품 X " + propOffsetX.toInt() }
+        addButton("소품 위로 이동") { propOffsetY -= 24f; status.text = "소품 Y " + propOffsetY.toInt() }
+        addButton("소품 아래로 이동") { propOffsetY += 24f; status.text = "소품 Y " + propOffsetY.toInt() }
+        addButton("소품 조정 초기화") { propScale = 1f; propRotation = 0f; propOffsetX = 0f; propOffsetY = 0f; status.text = "소품 조정 초기화됨" }
+
+
         controls.addView(TextView(this).apply { text = "소품 위치: 사진에서 원하는 곳을 손가락으로 칠한 후 적용하세요."; setTextColor(Color.LTGRAY) })
-        addButton("ONNX 모델 선택 (LaMa 호환)") { pickModel() }
-        addButton("FLUX 모델 폴더 가져오기 (6GB 이상 공간 필요)") {
+        controls.addView(TextView(this).apply { text = "고급 기능 · LaMa"; textSize = 18f; setTextColor(Color.WHITE); setPadding(0, 24, 0, 6) })
+        addButton("고급 기능 · LaMa 모델 선택") { pickModel() }
+        controls.addView(TextView(this).apply { text = "모델 및 성능"; textSize = 19f; setTextColor(Color.WHITE); setPadding(0, 24, 0, 6) })
+        controls.addView(TextView(this).apply { text = "FLUX Editing 설치 · 무결성 · GPU · 메모리/발열 진단"; setTextColor(Color.LTGRAY) })
+        addButton("FLUX Editing 모델 가져오기 · 13개 그래프") {
             startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
             }, pickFluxDirectory)
         }
-        addButton("FLUX 모델 12개 설치 확인") {
+        addButton("FLUX 편집 모델 13개 설치 확인") {
             val directory = java.io.File(filesDir, "flux_models")
             try {
-                FluxInferenceEntry.validateGraphFiles(directory, false)
-                status.text = "FLUX 생성용 그래프 12개 확인됨 · GPU 추론은 별도 검증 필요"
+                FluxInferenceEntry.validateGraphFiles(directory, true)
+                status.text = "FLUX 편집용 그래프 13개 확인됨 · GPU 추론은 별도 검증 필요"
             } catch (e: Exception) { status.text = "FLUX 파일 검사 실패: ${e.message}" }
         }
+        addButton("기기 메모리·발열 상태 확인") {
+            try {
+                val snapshot = DevicePerformanceMonitor.sample(this)
+                status.text = snapshot.summary() + " · GPU 사용률은 측정되지 않음"
+            } catch (e: Exception) {
+                status.text = "기기 상태 조회 실패: ${e.message}"
+            }
+        }
+        addButton("FLUX SHA-256 무결성 검사") {
+            val graph = java.io.File(filesDir, "flux_models/kce_prep.tflite")
+            if (!graph.isFile) {
+                status.text = "먼저 FLUX 모델을 가져오세요."
+            } else {
+                val field = android.widget.EditText(this).apply {
+                    hint = "신뢰할 수 있는 원본 SHA-256 (64자리)"
+                    inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                        android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                    setSingleLine(true)
+                }
+                android.app.AlertDialog.Builder(this)
+                    .setTitle("kce_prep.tflite SHA-256 검사")
+                    .setMessage("모델 배포처에서 별도로 확인한 SHA-256 값을 입력하세요.")
+                    .setView(field)
+                    .setNegativeButton("취소", null)
+                    .setPositiveButton("검사") { _, _ ->
+                        val expected = field.text.toString().trim()
+                        if (!Regex("[0-9a-fA-F]{64}").matches(expected)) {
+                            status.text = "SHA-256은 64자리 16진수여야 합니다."
+                        } else {
+                            status.text = "SHA-256 계산 중... 대용량 파일은 시간이 걸립니다."
+                            Thread {
+                                try {
+                                    val ok = FluxSha256.verify(graph, expected)
+                                    runOnUiThread {
+                                        status.text = if (ok) "SHA-256 일치 · kce_prep.tflite 무결성 확인"
+                                        else "SHA-256 불일치 · 모델 파일을 사용하지 마세요."
+                                    }
+                                } catch (e: Exception) {
+                                    runOnUiThread { status.text = "SHA-256 검사 실패: ${e.message}" }
+                                }
+                            }.start()
+                        }
+                    }.show()
+            }
+        }
         addButton("설치된 FLUX 그래프 GPU 컴파일 검사") {
-            val graph = java.io.File(filesDir, "flux_models/kc_prep.tflite")
+            val graph = java.io.File(filesDir, "flux_models/kce_prep.tflite")
             if (!graph.isFile || graph.length() == 0L) {
                 status.text = "FLUX 모델 폴더를 먼저 가져오세요."
             } else {
-                status.text = "FLUX kc_prep GPU 컴파일 검사 중..."
+                status.text = "FLUX kce_prep GPU 컴파일 검사 중..."
                 Thread {
                     val result = try {
                         LiteRtGraphProbe.compileGpu(this, graph)
                     } catch (e: Exception) {
-                        LiteRtGraphProbe.Result("kc_prep", false, 0, 0, 0, e.message)
+                        LiteRtGraphProbe.Result("kce_prep", false, 0, 0, 0, e.message)
                     } catch (e: OutOfMemoryError) {
-                        LiteRtGraphProbe.Result("kc_prep", false, 0, 0, 0, "GPU 메모리 부족")
+                        LiteRtGraphProbe.Result("kce_prep", false, 0, 0, 0, "GPU 메모리 부족")
                     }
                     runOnUiThread {
                         status.text = if (result.success)
-                            "FLUX kc_prep GPU 그래프 컴파일 성공 (${result.milliseconds}ms) · 추론 실행은 별도"
-                        else "FLUX kc_prep GPU 컴파일 실패: ${result.error}"
+                            "FLUX kce_prep GPU 그래프 컴파일 성공 (${result.milliseconds}ms) · 추론 실행은 별도"
+                        else "FLUX kce_prep GPU 컴파일 실패: ${result.error}"
                     }
                 }.start()
             }
@@ -177,7 +284,7 @@ class MainActivity : Activity() {
         addButton("마스크 전체 지우기") { maskView.clearMask() }
         addButton("브러시 작게") { maskView.brushPx = (maskView.brushPx - 12f).coerceAtLeast(12f) }
         addButton("브러시 크게") { maskView.brushPx = (maskView.brushPx + 12f).coerceAtMost(160f) }
-        addButton("선택 영역만 AI로 지우기") { executeInpaint() }
+        addButton("LaMa · 선택 영역 지우기") { executeInpaint() }
         addButton("표정 변경 모드") { editMode = "표정 변경"; updateExpressionStatus() }
         addButton("소품 추가 모드") { editMode = "소품 추가"; status.text = "소품 PNG를 선택해 합성하세요." }
         addButton("옷 변경 모드") { editMode = "옷 변경"; status.text = "옷 부분을 마스크로 지정하세요. AI 의상 생성 모델은 아직 연결되지 않았습니다." }
@@ -197,7 +304,7 @@ class MainActivity : Activity() {
             setTextColor(Color.LTGRAY)
         })
         scroll.addView(controls)
-        root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 0.75f))
+        root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.35f))
         setContentView(root)
         prepareBundledModel()
     }
@@ -227,7 +334,17 @@ class MainActivity : Activity() {
             }
         }
         val referenceInfo = if (expressionReference != null) " · 예시 사진 준비됨" else ""
-        status.text = "표정 '$expression' 선택됨$referenceInfo. 실제 얼굴 표정 생성 AI는 아직 연결되지 않아 사진을 변경하지 않았습니다."
+        val modelRoot = java.io.File(filesDir, "flux_models")
+        val preflight = FluxRuntimePreflight.check(modelRoot, editing = true)
+        val required = GraphPipelineContract.required(GraphPipelineContract.Mode.EDIT)
+        val missing = required.filterNot { java.io.File(modelRoot, it).isFile }
+        status.text = if (!preflight.ready) {
+            "FLUX 편집 준비 부족: " + preflight.problems.take(3).joinToString(" · ") + " · 사진은 변경하지 않음"
+        } else if (missing.isNotEmpty()) {
+            "FLUX 편집 실행 준비 부족: ${missing.size}개 필수 구성요소 없음 (${missing.take(3).joinToString(", ")}) · 사진은 변경하지 않음"
+        } else {
+            "FLUX 파일 확인됨$referenceInfo · 토큰화·로터리·VAE 정규화와 실기기 추론 검증 전이므로 사진은 변경하지 않음"
+        }
     }
 
     private fun applyPromptProp() {
@@ -251,6 +368,14 @@ class MainActivity : Activity() {
         }
         val merged = source.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(merged)
+        val transformedLayer = Bitmap.createBitmap(
+            layer, 0, 0, layer.width, layer.height,
+            Matrix().apply {
+                postScale(propScale, propScale, layer.width / 2f, layer.height / 2f)
+                postRotate(propRotation, layer.width / 2f, layer.height / 2f)
+                postTranslate(propOffsetX, propOffsetY)
+            }, true
+        )
         // A painted mask is an optional placement target. Without one, use image center.
         if (maskView.hasMask()) {
             val placementMask = maskView.exportMask()
@@ -269,12 +394,12 @@ class MainActivity : Activity() {
             if (count > 0) {
                 val dx = (sx / count).toFloat() - source.width / 2f
                 val dy = (sy / count).toFloat() - source.height / 2f
-                canvas.drawBitmap(layer, dx, dy, null)
+                canvas.drawBitmap(transformedLayer, dx, dy, null)
             } else {
-                canvas.drawBitmap(layer, 0f, 0f, null)
+                canvas.drawBitmap(transformedLayer, 0f, 0f, null)
             }
         } else {
-            canvas.drawBitmap(layer, 0f, 0f, null)
+            canvas.drawBitmap(transformedLayer, 0f, 0f, null)
         }
         undoSnapshot = source.copy(Bitmap.Config.ARGB_8888, false)
         original = merged
@@ -384,21 +509,48 @@ class MainActivity : Activity() {
                 }
                 val names = buildList {
                     for (i in 0..2) add("ke_enc$i.tflite")
-                    add("kc_prep.tflite")
-                    for (i in 0..1) add("kc_double$i.tflite")
-                    for (i in 0..3) add("kc_single$i.tflite")
-                    add("kc_final.tflite")
+                    add("kce_prep.tflite")
+                    for (i in 0..1) add("kce_double$i.tflite")
+                    for (i in 0..3) add("kce_single$i.tflite")
+                    add("kce_final.tflite")
+                    add("kv_vae_enc.tflite")
                     add("kv_vae.tflite")
                 }
                 val missing = names.filterNot { available.containsKey(it) }
                 require(missing.isEmpty()) { "폴더에 없는 모델: ${missing.joinToString()}" }
-                directory.mkdirs()
+                // Check the actual replacement bytes, including corrupt or truncated existing files.
+                val sourceSizes = mutableMapOf<String, Long>()
+                var requiredBytes = 0L
+                for (name in names) {
+                    val id = available.getValue(name)
+                    val uri = android.provider.DocumentsContract.buildDocumentUriUsingTree(treeUri, id)
+                    var size: Long? = null
+                    contentResolver.query(uri, arrayOf(
+                        android.provider.DocumentsContract.Document.COLUMN_SIZE
+                    ), null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst() && !cursor.isNull(0)) size = cursor.getLong(0)
+                    }
+                    val expected = size ?: error("모델 크기 조회 실패: $name")
+                    require(expected > 0L) { "모델 크기가 잘못됨: $name" }
+                    sourceSizes[name] = expected
+                    val existing = java.io.File(directory, name)
+                    if (!existing.isFile || existing.length() != expected) {
+                        requiredBytes = Math.addExact(requiredBytes, expected)
+                    }
+                }
+                val availableBytes = android.os.StatFs(filesDir.absolutePath).availableBytes
+                val reserve = 512L * 1024 * 1024
+                require(availableBytes > reserve && requiredBytes <= availableBytes - reserve) {
+                    "저장 공간 부족: 필요 ${requiredBytes / 1048576} MiB, 여유 ${availableBytes / 1048576} MiB (512 MiB 예약)"
+                }
+                require(directory.isDirectory || directory.mkdirs()) { "모델 저장 폴더 생성 실패" }
                 for ((index, name) in names.withIndex()) {
                     val id = available.getValue(name)
                     val uri = android.provider.DocumentsContract.buildDocumentUriUsingTree(treeUri, id)
                     val target = java.io.File(directory, name)
                     val partial = java.io.File(directory, "$name.partial")
-                    if (target.isFile && target.length() > 0L) continue
+                    val expectedSize = sourceSizes.getValue(name)
+                    if (target.isFile && target.length() == expectedSize) continue
                     runOnUiThread { status.text = "FLUX 모델 복사 중 ${index + 1}/${names.size}: $name" }
                     try {
                         contentResolver.openInputStream(uri).use { input ->
@@ -407,15 +559,27 @@ class MainActivity : Activity() {
                                 input.copyTo(output, 1024 * 1024)
                             }
                         }
-                        require(partial.length() > 0L) { "빈 모델: $name" }
-                        require(partial.renameTo(target)) { "모델 저장 실패: $name" }
+                        require(partial.length() == expectedSize) { "모델 복사 크기 불일치: $name" }
+                        // Never delete the old model before the replacement is fully copied.
+                        if (target.exists()) {
+                            val backup = java.io.File(directory, "$name.backup")
+                            require(!backup.exists() || backup.delete()) { "백업 파일 정리 실패: $name" }
+                            require(target.renameTo(backup)) { "기존 모델 백업 실패: $name" }
+                            if (!partial.renameTo(target)) {
+                                require(backup.renameTo(target)) { "기존 모델 복원 실패: $name" }
+                                error("모델 저장 실패: $name")
+                            }
+                            backup.delete()
+                        } else {
+                            require(partial.renameTo(target)) { "모델 저장 실패: $name" }
+                        }
                     } finally {
                         partial.delete()
                     }
                 }
-                FluxInferenceEntry.validateGraphFiles(directory, false)
+                FluxInferenceEntry.validateGraphFiles(directory, true)
                 runOnUiThread {
-                    status.text = "FLUX 모델 12개 설치 완료 · 실제 GPU 추론은 아직 검증되지 않음"
+                    status.text = "FLUX 편집 모델 13개 설치 완료 · 실제 GPU 추론은 아직 검증되지 않음"
                 }
             } catch (e: Exception) {
                 runOnUiThread { status.text = "FLUX 모델 설치 실패: ${e.message}" }

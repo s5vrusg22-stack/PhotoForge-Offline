@@ -58,6 +58,44 @@ object FluxVaePacking {
         return unpack(raw)
     }
 
+    /**
+     * The FLUX.2 VAE uses 32 channel-specific batch-normalization statistics.
+     * Apply them in NCHW space, before packing and after unpacking respectively.
+     * Callers must supply the exact exported checkpoint statistics.
+     */
+    fun packWithChannelStats(nchw: FloatArray, mean: FloatArray, std: FloatArray): FloatArray {
+        validateChannelStats(mean, std)
+        require(nchw.size == CHANNELS * HEIGHT * WIDTH)
+        val normalized = FloatArray(nchw.size)
+        val plane = HEIGHT * WIDTH
+        for (c in 0 until CHANNELS) for (i in 0 until plane) {
+            val index = c * plane + i
+            normalized[index] = (nchw[index] - mean[c]) / std[c]
+        }
+        return pack(normalized)
+    }
+
+    fun unpackWithChannelStats(tokens: FloatArray, mean: FloatArray, std: FloatArray): FloatArray {
+        validateChannelStats(mean, std)
+        val nchw = unpack(tokens)
+        val plane = HEIGHT * WIDTH
+        for (c in 0 until CHANNELS) for (i in 0 until plane) {
+            val index = c * plane + i
+            nchw[index] = nchw[index] * std[c] + mean[c]
+        }
+        require(nchw.all { it.isFinite() }) { "Nonfinite VAE denormalized latent" }
+        return nchw
+    }
+
+    private fun validateChannelStats(mean: FloatArray, std: FloatArray) {
+        require(mean.size == CHANNELS && std.size == CHANNELS) {
+            "VAE requires 32 channel means and standard deviations"
+        }
+        require(mean.all { it.isFinite() } && std.all { it.isFinite() && it > 0f }) {
+            "Invalid VAE channel statistics"
+        }
+    }
+
     private fun validateNormalization(scale: Float, shift: Float) {
         require(scale.isFinite() && scale > 0f && shift.isFinite()) {
             "VAE normalization requires a finite positive scale and finite shift"

@@ -11,13 +11,16 @@ from pathlib import Path
 MODEL_ID = "litert-community/FLUX.2-klein-4B-LiteRT"
 ENCODER = [f"ke_enc{i}.tflite" for i in range(3)]
 VAE = ["kv_vae.tflite"]
+TOKENIZER = ["tokenizer/qwen_vocab.txt", "tokenizer/qwen_merges.txt",
+             "tokenizer/qwen_special.txt", "tokenizer/qwen_embed_fp16.bin",
+             "tokenizer/tokenizer_fixture.txt"]
 def required(mode):
     prefix = "kce" if mode == "editing" else "kc"
     graphs = [f"{prefix}_prep.tflite"]
     graphs += [f"{prefix}_double{i}.tflite" for i in range(2)]
     graphs += [f"{prefix}_single{i}.tflite" for i in range(4)]
     graphs += [f"{prefix}_final.tflite"]
-    return ENCODER + graphs + VAE + (["kv_vae_enc.tflite"] if mode == "editing" else [])
+    return ENCODER + graphs + VAE + (["kv_vae_enc.tflite"] if mode == "editing" else []) + TOKENIZER
 
 def main():
     parser = argparse.ArgumentParser()
@@ -32,7 +35,7 @@ def main():
     info = api.model_info(MODEL_ID, revision=args.revision, files_metadata=True)
     sha = info.sha
     entries = {item.rfilename: item for item in info.siblings}
-    manifest = {"repo": MODEL_ID, "revision": sha, "mode": args.mode, "graphs": []}
+    manifest = {"repo": MODEL_ID, "revision": sha, "mode": args.mode, "graphs": [], "tokenizer": []}
     for name in required(args.mode):
         if name not in entries:
             raise RuntimeError(f"Missing graph in upstream repository: {name}")
@@ -43,9 +46,10 @@ def main():
                 digest.update(chunk)
         if file.stat().st_size == 0:
             raise RuntimeError(f"Empty model file: {name}")
-        manifest["graphs"].append({"file": name, "size": file.stat().st_size, "sha256": digest.hexdigest()})
+        category = "tokenizer" if name in TOKENIZER else "graphs"
+        manifest[category].append({"file": name, "size": file.stat().st_size, "sha256": digest.hexdigest()})
         print(f"Verified {name}: {file.stat().st_size} bytes")
     (out / "flux_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    print("Model graph acquisition complete. GPU inference NOT verified.")
+    print("Model graphs and tokenizer assets acquired. GPU inference NOT verified.")
 if __name__ == "__main__":
     main()

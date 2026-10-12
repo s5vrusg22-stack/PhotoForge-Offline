@@ -1,0 +1,45 @@
+name: Export FLUX timestep projection
+on:
+  push:
+    branches:
+      - feature/device-performance-telemetry-20261010
+    paths:
+      - 'scripts/export_flux_timestep_projection.py'
+      - '.github/workflows/export-flux-timestep.yml'
+  workflow_dispatch:
+    inputs:
+      sigmas:
+        description: 'Five comma-separated sigmas (strictly descending, last 0)'
+        required: true
+        default: '1,0.75,0.5,0.25,0'
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install export dependencies
+        run: pip install --disable-pip-version-check torch safetensors huggingface_hub numpy
+      - name: Export model-projected timestep embeddings
+        env:
+          SIGMAS: ${{ inputs.sigmas || '1,0.75,0.5,0.25,0' }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python - <<'PY'
+          import os, subprocess
+          values = [s.strip() for s in os.environ['SIGMAS'].split(',')]
+          if len(values) != 5:
+              raise SystemExit('Exactly five sigmas required')
+          subprocess.run(['python', 'scripts/export_flux_timestep_projection.py',
+                          '--sigmas', *values, '--output', 'flux_temb_4x3072.bin'], check=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flux-timestep-projection
+          path: |
+            flux_temb_4x3072.bin
+            flux_temb_4x3072.bin.json
+          retention-days: 7

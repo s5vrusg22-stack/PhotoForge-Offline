@@ -3,7 +3,7 @@ package com.example.photoforge
 import java.io.File
 
 /**
- * Production entry gate. Qwen stays disabled on user request.
+ * Production graph entry gate. Text encoding is handled by QwenEmbeddingPipeline.
  * Never call the graph runner with placeholder tokenizer/mask/rotary inputs.
  */
 object FluxInferenceEntry {
@@ -38,8 +38,6 @@ object FluxInferenceEntry {
     ): FloatArray {
         require(modelDirectory.isDirectory) { "FLUX model directory does not exist" }
         validateGraphFiles(modelDirectory, host.referenceImageChw != null)
-        // Verified embeddings may be provided by an external host; the disabled
-        // Qwen text-encoding feature must not block graph-only inference.
         LiteRtSequentialRunner(modelDirectory).use { gpu ->
             return FluxGraphExecutor(gpu::run).run(host, onStage)
         }

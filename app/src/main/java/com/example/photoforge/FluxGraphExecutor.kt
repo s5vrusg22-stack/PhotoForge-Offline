@@ -21,9 +21,40 @@ class FluxGraphExecutor(private val runner: (String, List<FloatArray>) -> List<F
         val decodeLatents: (FloatArray) -> FloatArray = { error("Latent unpack and VAE normalization unavailable") }
     )
 
+    /**
+     * Construct the exact VAE latent adapters from checkpoint channel statistics.
+     * No default coefficients are substituted; all 32 values must be supplied.
+     */
+    companion object {
+        fun withVaeChannelStats(
+            base: HostTensors,
+            mean: FloatArray,
+            std: FloatArray
+        ): HostTensors {
+            require(mean.size == FluxVaePacking.CHANNELS &&
+                std.size == FluxVaePacking.CHANNELS) {
+                "FLUX VAE needs 32 channel statistics"
+            }
+            val fixedMean = mean.copyOf()
+            val fixedStd = std.copyOf()
+            require(fixedMean.all { it.isFinite() } &&
+                fixedStd.all { it.isFinite() && it > 0f }) {
+                "Invalid VAE channel statistics"
+            }
+            return base.copy(
+                encodeReference = { FluxVaePacking.packWithChannelStats(it, fixedMean, fixedStd) },
+                decodeLatents = { FluxVaePacking.unpackWithChannelStats(it, fixedMean, fixedStd) }
+            )
+        }
+    }
+
     private fun invoke(name: String, inputs: List<FloatArray>, outputs: Int): List<FloatArray> {
+        require(inputs.isNotEmpty() && inputs.all { tensor -> tensor.isNotEmpty() && tensor.all(Float::isFinite) }) {
+            "$name received empty or nonfinite input"
+        }
         val result = runner("$name.tflite", inputs)
         check(result.size == outputs) { "$name returned ${result.size} outputs, expected $outputs" }
+        check(result.none { it.isEmpty() }) { "$name returned an empty output tensor" }
         check(result.all { tensor -> tensor.all { it.isFinite() } }) { "$name produced nonfinite tensor" }
         return result
     }
@@ -34,6 +65,13 @@ class FluxGraphExecutor(private val runner: (String, List<FloatArray>) -> List<F
         // Fail-fast on missing adapters without executing a fake denoising step.
         // Actual adapter output is checked at the point where real VAE data exists.
         val mode = if (editing) "kce" else "kc"
+        // Editing must have an explicit, verified VAE adapter. A graph-only
+        // installation cannot silently run with identity normalization.
+        if (editing) {
+            require(host.referenceImageChw!!.size == 3 * 256 * 256) {
+                "Reference image must be 256x256 RGB NCHW"
+            }
+        }
         FluxTensorRouting.requireShape("input embeddings", host.inputsEmbeds, 1, 512, 2560)
         FluxTensorRouting.requireShape("noise", host.initialNoise, 1, 256, 128)
         require(host.timeEmbeddings.size == 4 && host.sigmas.size == 5) {

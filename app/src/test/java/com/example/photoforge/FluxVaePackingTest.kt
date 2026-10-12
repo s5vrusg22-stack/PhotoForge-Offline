@@ -31,4 +31,18 @@ class FluxVaePackingTest {
     fun rejectsNonfiniteNormalizedLatents() {
         FluxVaePacking.unpackNormalized(FloatArray(256 * 128) { Float.MAX_VALUE }, 0.000001f, 0f)
     }
+
+    @Test fun perChannelStatisticsRoundTrip() {
+        val source = FloatArray(32 * 32 * 32) { (it % 113 - 50) / 50f }
+        val mean = FloatArray(32) { it * 0.03f }
+        val std = FloatArray(32) { 0.5f + it * 0.02f }
+        val tokens = FluxVaePacking.packWithChannelStats(source, mean, std)
+        assertArrayEquals(source, FluxVaePacking.unpackWithChannelStats(tokens, mean, std), 0.000001f)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsInvalidChannelStatistics() {
+        FluxVaePacking.packWithChannelStats(
+            FloatArray(32 * 32 * 32), FloatArray(32), FloatArray(32))
+    }
 }

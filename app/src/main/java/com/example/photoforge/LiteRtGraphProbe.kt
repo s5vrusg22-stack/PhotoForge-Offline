@@ -3,6 +3,7 @@ package com.example.photoforge
 import android.content.Context
 import android.os.Debug
 import android.os.SystemClock
+import android.util.Log
 import com.google.ai.edge.litert.Accelerator
 import com.google.ai.edge.litert.CompiledModel
 import java.io.File
@@ -24,7 +25,9 @@ object LiteRtGraphProbe {
     fun compileGpu(context: Context, model: File): Result {
         require(model.isFile && model.length() > 0L) { "그래프 파일이 없습니다." }
         require(model.extension == "tflite") { "TFLite 그래프를 선택하세요." }
-        val before = Debug.getPss().toInt()
+        val beforeSample = DevicePerformanceMonitor.sample(context)
+        val before = beforeSample.appPssKb
+        Log.i("PhotoForgePerf", "GPU compile start ${model.name}: ${beforeSample.summary()}")
         val start = SystemClock.elapsedRealtime()
         return try {
             CompiledModel.create(
@@ -40,13 +43,19 @@ object LiteRtGraphProbe {
                 }
             }
             Result(model.name, true, SystemClock.elapsedRealtime() - start,
-                before, Debug.getPss().toInt(), null)
+                before, Debug.getPss().toInt(), null).also {
+                Log.i("PhotoForgePerf", "GPU compile end ${model.name}: ${DevicePerformanceMonitor.sample(context).summary()} duration=${it.milliseconds}ms")
+            }
         } catch (e: Exception) {
             Result(model.name, false, SystemClock.elapsedRealtime() - start,
-                before, Debug.getPss().toInt(), e.javaClass.simpleName + ": " + e.message)
+                before, Debug.getPss().toInt(), e.javaClass.simpleName + ": " + e.message).also {
+                Log.e("PhotoForgePerf", "GPU compile failed ${model.name}: ${DevicePerformanceMonitor.sample(context).summary()}", e)
+            }
         } catch (e: OutOfMemoryError) {
             Result(model.name, false, SystemClock.elapsedRealtime() - start,
-                before, Debug.getPss().toInt(), "GPU/메모리 부족: " + e.message)
+                before, Debug.getPss().toInt(), "GPU/메모리 부족: " + e.message).also {
+                Log.e("PhotoForgePerf", "GPU out of memory ${model.name}: ${DevicePerformanceMonitor.sample(context).summary()}", e)
+            }
         }
     }
 }
