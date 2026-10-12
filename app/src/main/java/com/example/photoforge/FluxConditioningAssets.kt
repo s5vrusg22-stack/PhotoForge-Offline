@@ -23,6 +23,7 @@ object FluxConditioningAssets {
         }
     }
     fun load(root: File): Tensors {
+        FluxConditioningManifest.verify(root)
         val t = Tensors(
             read(root,"encoder_mask_f32le.bin"),
             read(root,"encoder_rotary_cos_f32le.bin"),
