@@ -24,6 +24,16 @@ object FluxRuntimeAudit {
         val tm = File(root, FluxProjectedTimestepConfig.META_NAME)
         add("timestep binary size", tb.isFile && tb.length() == FluxTimestepAssets.FILE_BYTES)
         add("timestep metadata", tm.isFile && tm.length() in 1..65536)
+        listOf(
+            "encoder_mask_f32le.bin",
+            "encoder_rotary_cos_f32le.bin", "encoder_rotary_sin_f32le.bin",
+            "dit_rotary_cos_f32le.bin", "dit_rotary_sin_f32le.bin"
+        ).forEach { name ->
+            val f = File(root, name)
+            add("conditioning $name", f.isFile && f.length() > 0L && f.length() % 4L == 0L)
+        }
+        try { FluxConditioningAssets.load(root); add("conditioning finite/pairs", true) }
+        catch (_: Exception) { add("conditioning finite/pairs", false) }
         val vs = File(root, "vae_stats_f32le.bin")
         add("VAE stats size", vs.isFile && vs.length() == 256L)
         try { FluxVaeStatistics.load(vs); add("VAE stats finite", true) }
