@@ -1,5 +1,11 @@
 name: Export FLUX timestep projection
 on:
+  push:
+    branches:
+      - feature/device-performance-telemetry-20261010
+    paths:
+      - 'scripts/export_flux_timestep_projection.py'
+      - '.github/workflows/export-flux-timestep.yml'
   workflow_dispatch:
     inputs:
       sigmas:
