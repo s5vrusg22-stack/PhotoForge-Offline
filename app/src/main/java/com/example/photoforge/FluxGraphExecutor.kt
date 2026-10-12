@@ -49,8 +49,12 @@ class FluxGraphExecutor(private val runner: (String, List<FloatArray>) -> List<F
     }
 
     private fun invoke(name: String, inputs: List<FloatArray>, outputs: Int): List<FloatArray> {
+        require(inputs.isNotEmpty() && inputs.all { tensor -> tensor.isNotEmpty() && tensor.all(Float::isFinite) }) {
+            "$name received empty or nonfinite input"
+        }
         val result = runner("$name.tflite", inputs)
         check(result.size == outputs) { "$name returned ${result.size} outputs, expected $outputs" }
+        check(result.none { it.isEmpty() }) { "$name returned an empty output tensor" }
         check(result.all { tensor -> tensor.all { it.isFinite() } }) { "$name produced nonfinite tensor" }
         return result
     }
