@@ -14,6 +14,7 @@ object FluxEditRuntime {
         FluxRuntimeAudit.audit(modelRoot).requireOk()
         FluxRuntimePreflight.requireReady(modelRoot, editing = true)
         val host = FluxTimestepInstaller.attachFromModelRoot(hostWithoutTime, modelRoot)
+        FluxExecutionGuard.validate(host)
         return FluxGraphExecutor(runner).run(host)
     }
 }
