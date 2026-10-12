@@ -3,7 +3,7 @@ package com.example.photoforge
 import android.graphics.Bitmap
 import kotlin.math.roundToInt
 
-/** Exact RGB float tensor bridge for the 256x256 VAE graphs. */
+/** Exact RGB float tensor bridge for the 256x256 VAE graphs.\n * Canonical bitmap conversion path; do not add parallel image normalization implementations.\n */
 object FluxBitmapTensor {
     const val SIZE = 256
     fun toNchw(bitmap: Bitmap): FloatArray {
