@@ -25,6 +25,9 @@ class FluxEndToEndEditor(
         seed: Int
     ): Bitmap {
         require(prompt.isNotBlank()) { "Edit prompt must not be blank" }
+        require(sigmas.size == 5) { "FLUX Klein requires exactly five sigma boundaries" }
+        FlowMatchScheduler.validateTimesteps(sigmas)
+        require(sigmas.last() == 0f) { "Final sigma must be zero" }
         FluxRuntimePreflight.requireReady(modelRoot, editing = true)
         val text = qwen.encode(prompt)
         val image = FluxBitmapTensor.toNchw(source)
