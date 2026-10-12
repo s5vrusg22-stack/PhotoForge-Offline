@@ -14,7 +14,17 @@ object FluxRuntimePreflight {
             val f = File(modelRoot, name)
             if (!f.isFile || f.length() <= 0L) problems += "missing graph: $name"
         }
-        if (editing) {\n            val timestepBin = File(modelRoot, FluxProjectedTimestepConfig.FILE_NAME)\n            val timestepMeta = File(modelRoot, FluxProjectedTimestepConfig.META_NAME)\n            if (!timestepBin.isFile || !timestepMeta.isFile) {\n                problems += "missing verified FLUX timestep projection assets"\n            }\n            try {
+        if (editing) {
+            val timestepBin = File(modelRoot, FluxProjectedTimestepConfig.FILE_NAME)
+            val timestepMeta = File(modelRoot, FluxProjectedTimestepConfig.META_NAME)
+            if (!timestepBin.isFile || !timestepMeta.isFile) {
+                problems += "missing verified FLUX timestep projection assets"
+            }
+            val vaeStats = File(modelRoot, "vae_stats_f32le.bin")
+            if (!vaeStats.isFile || vaeStats.length() != 256L) {
+                problems += "missing or invalid VAE 32-channel statistics"
+            }
+            try {
                 val assets = QwenTokenizerAssets(modelRoot).requireComplete()
                 if (assets.embeddings.length() !=
                     FluxEmbeddingLookup.VOCAB_SIZE.toLong() * FluxEmbeddingLookup.ROW_BYTES) {
