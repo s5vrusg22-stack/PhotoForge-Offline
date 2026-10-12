@@ -18,7 +18,10 @@ def main():
     p.add_argument("--prompt", default="Turn the apple into a green apple")
     args = p.parse_args()
     tokenizer = AutoTokenizer.from_pretrained(TOKENIZER, use_fast=True)
-    ids = tokenizer.encode(args.prompt, add_special_tokens=False)\n    decoded = tokenizer.decode(ids, skip_special_tokens=False)\n    if decoded != args.prompt:\n        raise RuntimeError(f"Qwen token round-trip mismatch: {decoded!r}")
+    ids = tokenizer.encode(args.prompt, add_special_tokens=False)
+    decoded = tokenizer.decode(ids, skip_special_tokens=False)
+    if decoded != args.prompt:
+        raise RuntimeError(f"Qwen token round-trip mismatch: {decoded!r}")
     if not ids or any(i < 0 or i >= 151936 for i in ids):
         raise RuntimeError("Invalid Qwen token IDs")
     fixture = hf_hub_download(repo_id=MODEL, filename="tokenizer/tokenizer_fixture.txt", revision=args.revision)
