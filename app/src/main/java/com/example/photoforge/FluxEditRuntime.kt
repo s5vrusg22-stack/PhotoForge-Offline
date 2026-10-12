@@ -11,6 +11,7 @@ object FluxEditRuntime {
         runner: FluxGraphRunner,
         hostWithoutTime: FluxGraphExecutor.HostTensors
     ): FloatArray {
+        FluxRuntimeAudit.audit(modelRoot).requireOk()
         FluxRuntimePreflight.requireReady(modelRoot, editing = true)
         val host = FluxTimestepInstaller.attachFromModelRoot(hostWithoutTime, modelRoot)
         return FluxGraphExecutor(runner).run(host)
