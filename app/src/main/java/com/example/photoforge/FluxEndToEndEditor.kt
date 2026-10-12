@@ -13,6 +13,17 @@ class FluxEndToEndEditor(
     private val graphRunner: FluxGraphRunner,
     private val qwen: QwenEmbeddingPipeline
 ) {
+    fun editWithInstalledConditioning(
+        source: Bitmap,
+        prompt: String,
+        sigmas: FloatArray,
+        seed: Int
+    ): Bitmap {
+        val c = FluxConditioningAssets.load(modelRoot)
+        return edit(source, prompt, c.encoderMask, c.encoderCos, c.encoderSin,
+            c.ditCos, c.ditSin, sigmas, seed)
+    }
+
     fun edit(
         source: Bitmap,
         prompt: String,
